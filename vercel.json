@@ -16,8 +16,8 @@
       "dest": "/spdown.js"
     },
     {
-      "src": "/spotify/trend",
-      "dest": "/sptrend.js"
+      "src": "/lyrics",
+      "dest": "/lyrics.js"
     },
     {
       "src": "/gpt",
