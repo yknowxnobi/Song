@@ -30,11 +30,13 @@ async function fetchSpotifyData(accessToken, category, type) {
     if (category === 'trending') {
         switch (type) {
             case 'songs':
+                url = 'https://api.spotify.com/v1/me/top/artists';  // Change to top tracks for trending
+                break;
             case 'albums':
-                url = 'https://api.spotify.com/v1/browse/new-releases';
+                url = 'https://api.spotify.com/v1/me/top/albums'; // You can use this endpoint for most played albums if Spotify supports it
                 break;
             case 'playlists':
-                url = 'https://api.spotify.com/v1/browse/featured-playlists';
+                url = 'https://api.spotify.com/v1/browse/featured-playlists';  // Trending playlists
                 break;
             default:
                 throw new Error('Invalid type for trending');
