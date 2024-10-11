@@ -1,0 +1,42 @@
+{
+  "name": "teleserviceApi",
+  "version": "1.0.0",
+  "description": "A Telegram bot deployed on Vercel",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "engines": {
+    "node": ">=14.x"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "body-parser": "^1.19.0",
+    "node-fetch": "^2.6.1",
+    "base64url": "^3.0.1",
+    "mysql": "^2.18.1",
+    "mysql2": "^2.3.3",
+    "node-telegram-bot-api": "^0.50.0",
+    "got": "^11.8.3",
+    "jsdom": "^21.1.0",
+    "imagemaker.js": "latest",
+    "json-to-plain-text": "^1.1.0",
+    "json-to-pretty-yaml": "latest",
+    "xml2js": "latest",
+    "axios": "latest",
+    "awesome-phonenumber": "latest",
+    "libphonenumber-js": "latest",
+    "brotli-wasm": "latest",
+    "brotli": "latest",
+    "cheerio": "latest",
+    "cookie": "latest",
+    "nayan-media-downloader": "^2.4.6",
+    "ws": "latest",
+    "firebase-admin": "latest",
+    "pdf-lib": "latest",
+    "w5-textmaker": "latest"
+  },
+  "license": "MIT"
+}
