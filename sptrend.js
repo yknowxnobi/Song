@@ -99,7 +99,7 @@ module.exports = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid type specified.' });
         }
 
-        res.status(200).json({ success: true, data: result });
+        res.status(200).json({ success: true, tracks: result });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
