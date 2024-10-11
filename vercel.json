@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/spotify/search",
+      "dest": "/spsearch.js"
+    },
+    {
+      "src": "/spotify/down",
+      "dest": "/spdown.js"
+    },
+    {
+      "src": "/spotify/trend",
+      "dest": "/sptrend.js"
+    },
+    {
+      "src": "/gpt",
+      "dest": "/gpt.js"
+    }
+  ]
+}
