@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     // Define the request configuration with necessary headers
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36',
-      
+      'Accept-Encoding': 'gzip, deflate, br, zstd',
       'sec-ch-ua': '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
       'dnt': '1',
       'sec-ch-ua-mobile': '?1',
@@ -55,11 +55,22 @@ export default async function handler(req, res) {
     // Parse the JSON response
     const data = await response.json();
 
-    // Send the API response back to the client
-    res.status(200).json(data);
+    // Structure the response in the desired format
+    const result = {
+      artist: data.metadata.artists,
+      title: data.metadata.title,
+      album: data.metadata.album,
+      cover: data.metadata.cover,
+      isrc: data.metadata.isrc,
+      releaseDate: data.metadata.releaseDate,
+      link: data.link
+    };
+
+    // Send the structured response back to the client
+    res.status(200).json(result);
 
   } catch (error) {
     // Handle any errors and send an error response
     res.status(500).json({ error: error.message });
   }
-}
+        }
