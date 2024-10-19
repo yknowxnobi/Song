@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     // Define the request configuration with necessary headers
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36',
-      'Accept-Encoding': 'gzip, deflate, br, zstd',
+      //'Accept-Encoding': 'gzip, deflate, br, zstd',
       'sec-ch-ua': '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
       'dnt': '1',
       'sec-ch-ua-mobile': '?1',
