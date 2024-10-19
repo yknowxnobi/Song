@@ -16,8 +16,8 @@
       "dest": "/spdown.js"
     },
     {
-      "src": "/lyrics",
-      "dest": "/lyrics.js"
+      "src": "/track",
+      "dest": "/sptrack.js"
     },
     {
       "src": "/gpt",
