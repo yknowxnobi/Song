@@ -56,18 +56,10 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     // Structure the response in the desired format
-    const result = {
-      artist: data.metadata.artists,
-      title: data.metadata.title,
-      album: data.metadata.album,
-      cover: data.metadata.cover,
-      isrc: data.metadata.isrc,
-      releaseDate: data.metadata.releaseDate,
-      link: data.link
-    };
+    
 
     // Send the structured response back to the client
-    res.status(200).json(result);
+    res.status(200).json(data);
 
   } catch (error) {
     // Handle any errors and send an error response
