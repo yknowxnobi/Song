@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     const trackId = getTrackIdFromUrl(url);
 
     // Construct the API URL for Spotifydown or any other service
-    const apiUrl = `https://api.spotifydown.com/metadata/track/${trackId}`;
+    const apiUrl = `https://api.spotifydown.com/download/${trackId}`;
 
     // Define the request configuration with necessary headers
     const headers = {
