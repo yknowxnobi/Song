@@ -1,42 +1,48 @@
+const express = require('express');
 const axios = require('axios');
 
-// Function to fetch Spotify track details using Teleservices API
-const getSpotifyTrackDetails = async (spotifyUrl, authorization) => {
-  const encodedSpotifyUrl = encodeURIComponent(spotifyUrl);
-  const downloadApiUrl = `https://teleservicesapi.vercel.app/spotify?authorization=${authorization}&spotify_url=${encodedSpotifyUrl}`;
+const app = express();
 
-  console.log("Requesting download link from:", downloadApiUrl); // Debugging log
-
-  try {
-    // Send a request to Teleservices API for track details and download link
-    const response = await axios.get(downloadApiUrl);
-    console.log("Response data:", response.data); // Debugging log
-
-    return response.data; // Returning the data from the API response
-  } catch (error) {
-    console.error('Failed to get download link', error.response ? error.response.data : error.message);
-    throw error; // Throw the error to handle it in the main function
-  }
+const getSpotifyTrackDetails = async (url) => {
+  const trackResponse = await axios.get(`https://api.fabdl.com/spotify/get?url=${url}`);
+  return trackResponse.data.result;
 };
 
-// Main function to handle the request
-module.exports = async (req, res) => {
-  const spotifyUrl = req.query.url; // Track URL passed as a query parameter
-  const authorization = req.query.authorization || '@Teleservices_Api'; // Default authorization token
+const getDownloadLink = async (gid, track_id) => {
+  const downloadResponse = await axios.get(`https://api.fabdl.com/spotify/mp3-convert-task/${gid}/id`);
+  const result = downloadResponse.data.result;
+  if (result.track_id === track_id) {
+    return `https://api.fabdl.com${result.download_url}`;
+  }
+  return null;
+};
+
+app.get('/api/spotify', async (req, res) => {
+  const spotifyUrl = req.query.url;
+
+  if (!spotifyUrl) {
+    return res.status(400).json({ status: false, message: 'Spotify URL is required' });
+  }
 
   try {
-    if (spotifyUrl) {
-      // If a Spotify track URL is provided, fetch details
-      const trackData = await getSpotifyTrackDetails(spotifyUrl, authorization);
+    const trackDetails = await getSpotifyTrackDetails(spotifyUrl);
+    const downloadLink = await getDownloadLink(trackDetails.gid, trackDetails.id);
 
-      return res.status(200).json({
-        download_link: trackData.download_link, // Track details and download link
-        developerCredit: 'https://t.me/Teleservices_Api' // Developer credit URL
-      });
-    } else {
-      return res.status(400).json({ error: 'Query parameter "url" is required' });
+    if (!downloadLink) {
+      return res.status(500).json({ status: false, message: 'Error fetching download link' });
     }
+
+    res.json({
+      status: true,
+      title: trackDetails.name,
+      image: trackDetails.image,
+      artist: trackDetails.artists,
+      duration: trackDetails.duration_ms,
+      download_link: downloadLink
+    });
   } catch (error) {
-    return res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ status: false, message: 'An error occurred' });
   }
-};
+});
+
+module.exports = app;
