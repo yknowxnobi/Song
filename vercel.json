@@ -21,7 +21,7 @@
     },
     {
       "src": "/spotify/lyrics",
-      "dest": "/gpt.js"
+      "dest": "/lyrics.js"
     }
   ]
 }
