@@ -15,7 +15,7 @@ const getDownloadLink = async (gid, track_id) => {
   return response.data.result;
 };
 
-app.get('/api/spotify', async (req, res) => {
+app.get('/spotify/down', async (req, res) => {
   const spotifyUrl = req.query.url;
 
   if (!spotifyUrl) {
