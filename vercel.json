@@ -16,11 +16,11 @@
       "dest": "/spdown.js"
     },
     {
-      "src": "/track",
+      "src": "/spotify/track",
       "dest": "/sptrack.js"
     },
     {
-      "src": "/gpt",
+      "src": "/spotify/lyrics",
       "dest": "/gpt.js"
     }
   ]
