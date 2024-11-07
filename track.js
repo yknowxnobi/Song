@@ -34,7 +34,8 @@ module.exports = async (req, res) => {
             spotifyUrl: track.spotifyUrl,
             previewUrl: track.previewUrl,
             image: track.image,
-            downloadLink: downloadResponse.data
+            downloadLink: downloadResponse.data.download_link,
+            duration: downloadResponse.data.duration
         });
 
     } catch (error) {
