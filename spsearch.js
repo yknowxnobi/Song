@@ -3,7 +3,6 @@ const axios = require('axios');
 const client_id = '414df719f85e45c9bd0ee5e83d08b501';
 const client_secret = 'fa7e159a0b904b8b8505bf59b6458d3a';
 
-// Function to get Spotify access token
 const getAccessToken = async () => {
   const tokenUrl = 'https://accounts.spotify.com/api/token';
   const authOptions = {
@@ -18,13 +17,11 @@ const getAccessToken = async () => {
     const response = await axios.post(tokenUrl, authOptions.data, { headers: authOptions.headers });
     return response.data.access_token;
   } catch (error) {
-    console.error('Failed to get access token', error.response ? error.response.data : error.message);
     throw error;
   }
 };
 
-// Function to search for songs using query
-const searchSongs = async (accessToken, query, limit = 30) => {
+const searchSongs = async (accessToken, query, limit = 30, offset = 0) => {
   const searchUrl = 'https://api.spotify.com/v1/search';
   const options = {
     headers: {
@@ -33,7 +30,8 @@ const searchSongs = async (accessToken, query, limit = 30) => {
     params: {
       q: query,
       type: 'track',
-      limit // Fetch up to the specified limit of tracks
+      limit,
+      offset
     }
   };
 
@@ -41,14 +39,12 @@ const searchSongs = async (accessToken, query, limit = 30) => {
     const response = await axios.get(searchUrl, options);
     return response.data;
   } catch (error) {
-    console.error('Failed to search tracks', error.response ? error.response.data : error.message);
     throw error;
   }
 };
 
-// Function to fetch album details (including all songs in the album) using Spotify API
 const getAlbumDetails = async (accessToken, albumUrl) => {
-  const albumId = albumUrl.split('/').pop().split('?')[0]; // Extract album ID from Spotify URL
+  const albumId = albumUrl.split('/').pop().split('?')[0];
   const albumDetailsUrl = `https://api.spotify.com/v1/albums/${albumId}`;
 
   try {
@@ -74,17 +70,15 @@ const getAlbumDetails = async (accessToken, albumUrl) => {
       releaseDate: albumInfo.release_date,
       imageUrl: albumInfo.images[0].url,
       totalTracks: albumInfo.total_tracks,
-      tracks // List of all track details
+      tracks
     };
   } catch (error) {
-    console.error('Failed to fetch album details', error.response ? error.response.data : error.message);
     throw error;
   }
 };
 
-// Function to fetch playlist details (including all songs in the playlist) using Spotify API
 const getPlaylistDetails = async (accessToken, playlistUrl) => {
-  const playlistId = playlistUrl.split('/').pop().split('?')[0]; // Extract playlist ID from Spotify URL
+  const playlistId = playlistUrl.split('/').pop().split('?')[0];
   const playlistDetailsUrl = `https://api.spotify.com/v1/playlists/${playlistId}`;
 
   try {
@@ -111,64 +105,45 @@ const getPlaylistDetails = async (accessToken, playlistUrl) => {
       owner: playlistInfo.owner.display_name,
       imageUrl: playlistInfo.images[0].url,
       totalTracks: playlistInfo.tracks.total,
-      tracks // List of all track details
+      tracks
     };
   } catch (error) {
-    console.error('Failed to fetch playlist details', error.response ? error.response.data : error.message);
     throw error;
   }
 };
 
-// Function to fetch download link using Teleservices Downloader API
-const getDownloadLink = async (spotifyUrl, authorization) => {
-  const downloadApiUrl = `https://teleservicesapi.vercel.app/spotify?authorization=${authorization}&spotify_url=${encodeURIComponent(spotifyUrl)}`;
-
-  try {
-    const response = await axios.get(downloadApiUrl);
-    return response.data;
-  } catch (error) {
-    console.error('Failed to get download link', error.response ? error.response.data : error.message);
-    throw error;
-  }
-};
-
-// Main function to handle the request for searching songs/albums/playlists
 module.exports = async (req, res) => {
-  const query = req.query.q; // Search query for tracks or albums
-  const spotifyUrl = req.query.url; // Track, album, or playlist URL
-  const authorization = req.query.authorization || '@Teleservices_Api';
-  const limit = parseInt(req.query.limit, 10) || 30; // Optional limit, default is 30
-  const isAlbum = req.query.album === 'true'; // Check if the request is for an album
-  const isPlaylist = req.query.playlist === 'true'; // Check if the request is for a playlist
-  const bot = req.query.bot
+  const query = req.query.q;
+  const spotifyUrl = req.query.url;
+  const limit = parseInt(req.query.limit, 10) || 30;
+  const offset = parseInt(req.query.offset, 10) || 0;
+  const isAlbum = req.query.album === 'true';
+  const isPlaylist = req.query.playlist === 'true';
+  const bot = req.query.bot;
+
   try {
     if (spotifyUrl && isPlaylist) {
-      // If a Spotify playlist URL is provided
       const accessToken = await getAccessToken();
       const playlistDetails = await getPlaylistDetails(accessToken, spotifyUrl);
 
       return res.status(200).json({
-        data: playlistDetails, // Playlist details with all tracks
-        developerCredit: 'https://t.me/Teleservices_Api' // Developer credit URL
+        data: playlistDetails,
+        developerCredit: 'https://t.me/Teleservices_Api'
       });
     } else if (spotifyUrl && isAlbum) {
-      // If a Spotify album URL is provided
       const accessToken = await getAccessToken();
       const albumDetails = await getAlbumDetails(accessToken, spotifyUrl);
 
       return res.status(200).json({
-        tracks: albumDetails.tracks, // Album details with all tracks
-        developerCredit: 'https://t.me/Teleservices_Api' // Developer credit URL
+        tracks: albumDetails.tracks,
+        developerCredit: 'https://t.me/Teleservices_Api'
       });
     } else if (spotifyUrl) {
-      // If a Spotify track URL is provided
       const accessToken = await getAccessToken();
-      const trackDetails = await searchSongs(accessToken, spotifyUrl);
+      const trackDetails = await searchSongs(accessToken, spotifyUrl, 1, 0);
 
-      const trackInfo = trackDetails.tracks.items[0]; // Assuming it's the first track in the response
+      const trackInfo = trackDetails.tracks.items[0];
       if (trackInfo) {
-        const downloadData = await getDownloadLink(spotifyUrl, authorization);
-
         return res.status(200).json({
           track: {
             trackName: trackInfo.name,
@@ -177,19 +152,16 @@ module.exports = async (req, res) => {
             releaseDate: trackInfo.album.release_date,
             durationMs: trackInfo.duration_ms,
             previewUrl: trackInfo.preview_url,
-            spotifyUrl: trackInfo.external_urls.spotify,
-            downloadLink: downloadData.download_link
+            spotifyUrl: trackInfo.external_urls.spotify
           },
-          credit: downloadData.credit,
-          developerCredit: 'https://t.me/Teleservices_Api' // Developer credit URL
+          developerCredit: 'https://t.me/Teleservices_Api'
         });
       } else {
         return res.status(404).json({ error: 'Track not found' });
       }
     } else if (query) {
-      // If a search query is provided
       const accessToken = await getAccessToken();
-      const searchResults = await searchSongs(accessToken, query, limit);
+      const searchResults = await searchSongs(accessToken, query, limit, offset);
 
       const tracks = searchResults.tracks.items;
       if (tracks.length > 0) {
@@ -204,48 +176,43 @@ module.exports = async (req, res) => {
             album: track.album.name,
             releaseDate: track.album.release_date,
             spotifyUrl: track.external_urls.spotify,
-            previewUrl, // Direct Spotify preview URL
-            image // Album cover image
+            previewUrl,
+            image
           };
         });
 
         return res.status(200).json({
-          tracks: trackDetailsList, // List of song details
-          developerCredit: 'https://t.me/Teleservices_Api' // Developer credit URL
+          tracks: trackDetailsList,
+          developerCredit: 'https://t.me/Teleservices_Api'
         });
       } else {
         return res.status(404).json({ error: 'No tracks found' });
       }
     } else if (bot) {
       const accessToken = await getAccessToken();
-      const trackDetails = await searchSongs(accessToken, bot, 1);
+      const trackDetails = await searchSongs(accessToken, bot, 1, 0);
       
       const trackInfo = trackDetails.tracks.items[0];
-      
-       // Assuming it's the first track in the response
       if (trackInfo) {
-        const downloadData = await getDownloadLink(trackInfo.external_urls.spotify, authorization);
-        const duration_ms = trackInfo.duration_ms; // Assume this is your duration in milliseconds
+        const duration_ms = trackInfo.duration_ms;
         const d = Math.floor(duration_ms / 1000);
+
         return res.status(200).json({
           track: {
             trackName: trackInfo.name,
             artist: trackInfo.artists.map(artist => artist.name).join(', '),
             image: trackInfo.album.images[0].url,
             durationMs: d,
-            spotifyUrl: trackInfo.external_urls.spotify,
-            downloadLink: downloadData.download_link
-          },
-          credit: downloadData.credit,
+            spotifyUrl: trackInfo.external_urls.spotify
+          }
         });
       } else {
         return res.status(404).json({ error: 'Track not found' });
       }
-    }else{
-      res.status(500).json({error: 'use the api functions' });
+    } else {
+      res.status(500).json({ error: 'use the api functions' });
     }
   } catch (error) {
-    console.error('Error occurred', error.response ? error.response.data : error.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
