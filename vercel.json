@@ -22,6 +22,11 @@
     {
       "src": "/spotify/lyrics",
       "dest": "/lyrics.js"
+    },
+    {
+      "src": "/song",
+      "dest": "/track.js"
     }
+      
   ]
 }
