@@ -161,30 +161,38 @@ module.exports = async (req, res) => {
       }
     } else if (query) {
       const accessToken = await getAccessToken();
-      const searchResults = await searchSongs(accessToken, query, limit, offset);
+const searchResults = await searchSongs(accessToken, query, limit, offset);
 
-      const tracks = searchResults.tracks.items;
-      if (tracks.length > 0) {
-        const trackDetailsList = tracks.map((track, index) => {
-          const previewUrl = track.preview_url || 'No preview available';
-          const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
+const tracks = searchResults.tracks.items;
+if (tracks.length > 0) {
+  const trackDetailsList = tracks.map((track, index) => {
+    const previewUrl = track.preview_url || 'No preview available';
+    const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
 
-          return {
-            id: index + 1,
-            trackName: track.name,
-            artist: track.artists.map(artist => artist.name).join(', '),
-            album: track.album.name,
-            releaseDate: track.album.release_date,
-            spotifyUrl: track.external_urls.spotify,
-            previewUrl,
-            image
-          };
-        });
+    // Map each artist's information
+    const artists = track.artists.map(artist => ({
+      name: artist.name,
+      spotifyUrl: artist.external_urls.spotify,
+      id: artist.id,
+      uri: artist.uri
+    }));
 
-        return res.status(200).json({
-          tracks: trackDetailsList,
-          developerCredit: 'https://t.me/Teleservices_Api'
-        });
+    return {
+      id: index + 1,
+      trackName: track.name,
+      artists,  // Include full artist information here
+      album: track.album.name,
+      releaseDate: track.album.release_date,
+      spotifyUrl: track.external_urls.spotify,
+      previewUrl,
+      image
+    };
+  });
+
+  return res.status(200).json({
+    tracks: trackDetailsList,
+    developerCredit: 'https://t.me/Teleservices_Api'
+  });
 } else {
   return res.status(404).json({
     message: 'No tracks found',
