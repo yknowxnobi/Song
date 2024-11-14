@@ -160,45 +160,31 @@ module.exports = async (req, res) => {
         return res.status(404).json({ error: 'Track not found' });
       }
     } else if (query) {
-      const accessToken = await getAccessToken(); // Retrieve the access token
-const searchResults = await searchSongs(accessToken, query, limit, offset); // Fetch search results from Spotify
+      const accessToken = await getAccessToken();
+      const searchResults = await searchSongs(accessToken, query, limit, offset);
 
-const tracks = searchResults.tracks.items; // Extract track items from the response
+      const tracks = searchResults.tracks.items;
+      if (tracks.length > 0) {
+        const trackDetailsList = tracks.map((track, index) => {
+          const previewUrl = track.preview_url || 'No preview available';
+          const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
 
-// Check if any tracks are found
-if (tracks.length > 0) {
-  const trackDetailsList = tracks.map((track, index) => {
-    const previewUrl = track.preview_url || 'No preview available'; // Preview URL (if available)
-    const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available'; // Album image
+          return {
+            id: index + 1,
+            trackName: track.name,
+            artist: track.artists.map(artist => artist.name).join(', '),
+            album: track.album.name,
+            releaseDate: track.album.release_date,
+            spotifyUrl: track.external_urls.spotify,
+            previewUrl,
+            image
+          };
+        });
 
-    // Extract artist details (in case of multiple artists, we take the first one here)
-    const artist = track.artists[0]; // First artist of the track
-
-    return {
-      id: index + 1,
-      trackName: track.name, // Track name
-      artist: track.artists.map(artist => artist.name).join(', '), // Join all artist names
-      album: track.album.name, // Album name
-      releaseDate: track.album.release_date, // Album release date
-      durationMs: track.duration_ms, // Track duration in milliseconds
-      trackPopularity: track.popularity, // Track popularity (0-100)
-      spotifyUrl: track.external_urls.spotify, // Link to the track on Spotify
-      previewUrl, // Track preview URL (if available)
-      image, // Album cover image (if available)
-      artistInfo: {
-        artistName: artist.name, // Artist name
-        artistGenres: artist.genres.join(', ') || 'No genres available', // Artist genres
-        artistPopularity: artist.popularity, // Artist popularity (0-100)
-        artistFollowers: artist.followers.total, // Number of followers for the artist
-        artistSpotifyUrl: artist.external_urls.spotify, // Artist's Spotify profile link
-        artistImage: artist.images[0]?.url || 'No image available' // Artist image (if available)
-      }
-    };
-  });
-  return res.status(200).json({
-    tracks: trackDetailsList, // List of detailed track info
-    developerCredit: 'https://t.me/Teleservices_Api' // Developer credit link
-  });
+        return res.status(200).json({
+          tracks: trackDetailsList,
+          developerCredit: 'https://t.me/Teleservices_Api'
+        });
 } else {
   return res.status(404).json({
     message: 'No tracks found',
