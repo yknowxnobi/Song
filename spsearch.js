@@ -161,31 +161,44 @@ module.exports = async (req, res) => {
       }
     } else if (query) {
       const accessToken = await getAccessToken();
-      const searchResults = await searchSongs(accessToken, query, limit, offset);
+const searchResults = await searchSongs(accessToken, query, limit, offset);
 
-      const tracks = searchResults.tracks.items;
-      if (tracks.length > 0) {
-        const trackDetailsList = tracks.map((track, index) => {
-          const previewUrl = track.preview_url || 'No preview available';
-          const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
+const tracks = searchResults.tracks.items;
+if (tracks.length > 0) {
+  const trackDetailsList = tracks.map((track, index) => {
+    const previewUrl = track.preview_url || 'No preview available';
+    const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
+    
+    // Extract artist details from the first artist
+    const artist = track.artists[0];  // You could loop through for multiple artists if needed
 
-          return {
-            id: index + 1,
-            trackName: track.name,
-            artist: track.artists.map(artist => artist.name).join(', '),
-            album: track.album.name,
-            releaseDate: track.album.release_date,
-            spotifyUrl: track.external_urls.spotify,
-            previewUrl,
-            image
-          };
-        });
+    return {
+      id: index + 1,
+      trackName: track.name,
+      artist: track.artists.map(artist => artist.name).join(', '), // Multiple artists joined by commas
+      album: track.album.name,
+      releaseDate: track.album.release_date,
+      durationMs: track.duration_ms,
+      trackPopularity: track.popularity,
+      spotifyUrl: track.external_urls.spotify,
+      previewUrl, // Track preview link (if available)
+      image, // Album cover image (if available)
+      artistInfo: {
+        artistName: artist.name, // Artist name
+        artistGenres: artist.genres.join(', ') || 'No genres available', // Genres of the artist
+        artistPopularity: artist.popularity, // Artist popularity score (0-100)
+        artistFollowers: artist.followers.total, // Number of followers for the artist
+        artistSpotifyUrl: artist.external_urls.spotify, // Artist's Spotify URL
+        artistImage: artist.images[0]?.url || 'No image available' // Artist's image (if available)
+      }
+    };
+  });
 
-        return res.status(200).json({
-          tracks: trackDetailsList,
-          developerCredit: 'https://t.me/Teleservices_Api'
-        });
-      } else {
+  return res.status(200).json({
+    tracks: trackDetailsList,
+    developerCredit: 'https://t.me/Teleservices_Api'
+  });
+} else {
         return res.status(404).json({ error: 'No tracks found' });
       }
     } else if (bot) {
