@@ -1,43 +1,37 @@
-const fetch = require('node-fetch');
+// api/lyrics.js
 
-const apiURL = "https://api.lyrics.ovh";
+const Lyrics = require('./libs/lyrics');
 
-// Main handler function for the Vercel API
+// Your Spotify client credentials
+const client_id = '414df719f85e45c9bd0ee5e83d08b501';
+const client_secret = 'fa7e159a0b904b8b8505bf59b6458d3a';
+
+// Create a new instance of the Lyrics class
+const lyrics = new Lyrics(client_id, client_secret);
+
 module.exports = async (req, res) => {
-  const { artist, title } = req.query;
+    // Check if the method is GET
+    if (req.method === 'GET') {
+        // Get the track ID from URL parameters
+        const { track_id } = req.query;
 
-  // Validate if both artist and title are provided
-  if (!artist || !title) {
-    return res.status(400).json({
-      success: false,
-      message: 'Both artist and song title parameters are required.'
-    });
-  }
+        // Validate that the track ID is provided
+        if (!track_id) {
+            return res.status(400).json({ error: 'Track ID is required' });
+        }
 
-  try {
-    // Fetch lyrics from Lyrics.ovh
-    const response = await fetch(`${apiURL}/v1/${artist}/${title}`);
-    
-    if (!response.ok) {
-      throw new Error('Lyrics not found or invalid song/artist');
+        try {
+            // Get lyrics of the track
+            const lyricsData = await lyrics.getLyrics(track_id);
+            
+            // Return the lyrics as JSON
+            return res.status(200).json({ lyrics: lyricsData });
+        } catch (error) {
+            console.error('Error:', error.message);
+            return res.status(500).json({ error: error.message });
+        }
+    } else {
+        // Handle unsupported methods
+        return res.status(405).json({ error: 'Method Not Allowed' });
     }
-
-    const data = await response.json();
-
-    // Format lyrics with <br> tags for better display in HTML
-    const lyrics = data.lyrics.replace(/(\r\n|\r|\n)/g, "<br>");
-
-    // Return lyrics as JSON response
-    return res.status(200).json({
-      success: true,
-      lyrics: lyrics
-    });
-
-  } catch (error) {
-    console.error('Error fetching lyrics:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Unable to fetch lyrics'
-    });
-  }
 };
