@@ -121,11 +121,12 @@ const artists = track.artists.map(artist => ({
             duration,
             popularity: track.popularity,
             explicit: track.explicit,
-            externalUrls: {
-  spotify: track.external_urls.spotify,
-  youtube: track.external_urls.youtube || 'No YouTube link available',
-  deezer: track.external_urls.deezer || 'No Deezer link available'
-            }
+            trackUri: track.uri,
+            genres: track.genres || 'Genres not available',
+            copyright: track.album.copyrights ? track.album.copyrights.map(c => c.text).join(', ') : 'No copyright info available',
+            durationMs: track.duration_ms,
+            totalTracksInAlbum: track.album.total_tracks
+            
           };
         });
 
