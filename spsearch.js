@@ -122,8 +122,6 @@ const artists = track.artists.map(artist => ({
             popularity: track.popularity,
             explicit: track.explicit,
             trackUri: track.uri,
-            genres: track.genres || 'Genres not available',
-            copyright: track.album.copyrights ? track.album.copyrights.map(c => c.text).join(', ') : 'No copyright info available',
             durationMs: track.duration_ms,
             totalTracksInAlbum: track.album.total_tracks
             
