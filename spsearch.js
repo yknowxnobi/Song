@@ -112,11 +112,20 @@ const artists = track.artists.map(artist => ({
             artists,
             artist: track.artists.map(artist => artist.name).join(', '),
             album: track.album.name,
+            albumType: track.album.album_type,
+            albumExternalUrl: track.album.external_urls.spotify,
             releaseDate: track.album.release_date,
             spotifyUrl: track.external_urls.spotify,
             previewUrl,
             image,
-            duration
+            duration,
+            popularity: track.popularity,
+            explicit: track.explicit,
+            externalUrls: {
+  spotify: track.external_urls.spotify,
+  youtube: track.external_urls.youtube || 'No YouTube link available',
+  deezer: track.external_urls.deezer || 'No Deezer link available'
+            }
           };
         });
 
