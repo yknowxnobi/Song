@@ -108,7 +108,7 @@ module.exports = async (req, res) => {
       const accessToken = await getAccessToken();
       const albumDetails = await getAlbumDetails(accessToken, spotifyUrl);
       return res.status(200).json({
-        tracks: albumDetails,
+        tracks: albumDetails.tracks,
         developerCredit: 'https://t.me/Teleservices_Api'
       });
     } else if (query) {
@@ -126,16 +126,32 @@ module.exports = async (req, res) => {
         const trackDetailsList = combinedTracks.map((track, index) => {
           const previewUrl = track.preview_url || 'No preview available';
           const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
-          return {
-            id: index + 1,
-            trackName: track.name,
-            artist: track.artists.map(artist => artist.name).join(', '),
-            album: track.album.name,
-            releaseDate: track.album.release_date,
-            spotifyUrl: track.external_urls.spotify,
-            previewUrl,
-            image
-          };
+          const artists = track.artists.map(artist => ({
+              name: artist.name,
+              spotifyUrl: artist.external_urls.spotify,
+              id: artist.id,
+              uri: artist.uri
+            }));
+            const duration = new Date(track.duration_ms).toISOString().substr(14, 5);
+            return {
+              id: index + 1,
+              trackName: track.name,
+              artists,
+              artist: track.artists.map(artist => artist.name).join(', '),
+              album: track.album.name,
+              albumType: track.album.album_type,
+              albumExternalUrl: track.album.external_urls.spotify,
+              releaseDate: track.album.release_date,
+              spotifyUrl: track.external_urls.spotify,
+              previewUrl,
+              image,
+              duration,
+              popularity: track.popularity,
+              explicit: track.explicit,
+              trackUri: track.uri,
+              durationMs: track.duration_ms,
+              totalTracksInAlbum: track.album.total_tracks
+            };
         });
         return res.status(200).json({
           tracks: trackDetailsList,
