@@ -98,10 +98,16 @@ module.exports = async (req, res) => {
         const trackDetailsList = tracks.map((track, index) => {
           const previewUrl = track.preview_url || 'No preview available';
           const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
-
+const artists = track.artists.map(artist => ({
+      name: artist.name,
+      spotifyUrl: artist.external_urls.spotify,
+      id: artist.id,
+      uri: artist.uri
+    }));
           return {
             id: index + 1,
             trackName: track.name,
+            artists,
             artist: track.artists.map(artist => artist.name).join(', '),
             album: track.album.name,
             releaseDate: track.album.release_date,
