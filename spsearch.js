@@ -104,6 +104,8 @@ const artists = track.artists.map(artist => ({
       id: artist.id,
       uri: artist.uri
     }));
+          const duration = new Date(track.duration_ms).toISOString().substr(14, 5); // hh:mm format
+          
           return {
             id: index + 1,
             trackName: track.name,
@@ -113,7 +115,8 @@ const artists = track.artists.map(artist => ({
             releaseDate: track.album.release_date,
             spotifyUrl: track.external_urls.spotify,
             previewUrl,
-            image
+            image,
+            duration
           };
         });
 
