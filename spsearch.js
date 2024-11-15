@@ -1,129 +1,125 @@
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
 
-/**
- * Class Lyrics
- *
- * This class is responsible for interacting with the Spotify API to get track lyrics.
- */
-class Lyrics {
-    constructor(client_id, client_secret) {
-        this.token_url = 'https://accounts.spotify.com/api/token';
-        this.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/';
-        this.client_id = client_id;
-        this.client_secret = client_secret;
-        this.cache_file = path.join(require('os').tmpdir(), 'spotify_token.json');
+const client_id = '414df719f85e45c9bd0ee5e83d08b501';
+const client_secret = 'fa7e159a0b904b8b8505bf59b6458d3a';
+
+const getAccessToken = async () => {
+  const tokenUrl = 'https://accounts.spotify.com/api/token';
+  const authOptions = {
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from(client_id + ':' + client_secret).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    data: 'grant_type=client_credentials'
+  };
+
+  try {
+    const response = await axios.post(tokenUrl, authOptions.data, { headers: authOptions.headers });
+    return response.data.access_token;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const searchSongs = async (accessToken, query, limit = 30, offset = 0) => {
+  const searchUrl = 'https://api.spotify.com/v1/search';
+  const options = {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    },
+    params: {
+      q: query,
+      type: 'track',
+      limit,
+      offset
     }
+  };
 
-    /**
-     * Retrieves an access token from Spotify using the client credentials.
-     */
-    async getAccessToken() {
-        const authOptions = {
-            headers: {
-                'Authorization': 'Basic ' + Buffer.from(this.client_id + ':' + this.client_secret).toString('base64'),
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            data: 'grant_type=client_credentials'
+  try {
+    const response = await axios.get(searchUrl, options);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+module.exports = async (req, res) => {
+  const query = req.query.q;
+  let limit = parseInt(req.query.limit, 10) || 30;
+  const offset = parseInt(req.query.offset, 10) || 0;
+  
+  try {
+    const accessToken = await getAccessToken();
+
+    // Adjusting logic to handle limit of 100 with two pages (Spotify API max limit is 50)
+    if (limit > 50) {
+      const firstLimit = 50;
+      const secondLimit = limit - 50;
+      const firstOffset = offset;
+      const secondOffset = offset + 50;
+
+      // Fetch first page of 50 results
+      const firstPageResults = await searchSongs(accessToken, query, firstLimit, firstOffset);
+      const firstTracks = firstPageResults.tracks.items;
+
+      // Fetch second page for remaining results
+      const secondPageResults = await searchSongs(accessToken, query, secondLimit, secondOffset);
+      const secondTracks = secondPageResults.tracks.items;
+
+      // Combine both pages of results
+      const combinedTracks = [...firstTracks, ...secondTracks];
+
+      const trackDetailsList = combinedTracks.map((track, index) => {
+        const previewUrl = track.preview_url || 'No preview available';
+        const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
+
+        return {
+          id: index + 1,
+          trackName: track.name,
+          artist: track.artists.map(artist => artist.name).join(', '),
+          album: track.album.name,
+          releaseDate: track.album.release_date,
+          spotifyUrl: track.external_urls.spotify,
+          previewUrl,
+          image
         };
+      });
 
-        try {
-            const response = await axios.post(this.token_url, authOptions.data, { headers: authOptions.headers });
-            return response.data.access_token;
-        } catch (error) {
-            throw new Error('Failed to fetch access token: ' + error.message);
-        }
+      return res.status(200).json({
+        tracks: trackDetailsList,
+        developerCredit: 'https://t.me/Teleservices_Api'
+      });
+    } else {
+      // Handle cases where limit is 50 or less
+      const searchResults = await searchSongs(accessToken, query, limit, offset);
+      const tracks = searchResults.tracks.items;
+
+      if (tracks.length > 0) {
+        const trackDetailsList = tracks.map((track, index) => {
+          const previewUrl = track.preview_url || 'No preview available';
+          const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
+
+          return {
+            id: index + 1,
+            trackName: track.name,
+            artist: track.artists.map(artist => artist.name).join(', '),
+            album: track.album.name,
+            releaseDate: track.album.release_date,
+            spotifyUrl: track.external_urls.spotify,
+            previewUrl,
+            image
+          };
+        });
+
+        return res.status(200).json({
+          tracks: trackDetailsList,
+          developerCredit: 'https://t.me/Teleservices_Api'
+        });
+      } else {
+        return res.status(404).json({ error: 'No tracks found' });
+      }
     }
-
-    /**
-     * Checks if the access token is expired and retrieves a new one if it is.
-     */
-    async checkTokenExpire() {
-        if (fs.existsSync(this.cache_file)) {
-            const tokenData = JSON.parse(fs.readFileSync(this.cache_file, 'utf-8'));
-            const timeleft = tokenData.accessTokenExpirationTimestampMs;
-            const timenow = Date.now();
-
-            if (timeleft < timenow) {
-                await this.getAccessToken();
-            }
-        } else {
-            await this.getAccessToken();
-        }
-    }
-
-    /**
-     * Retrieves the lyrics of a track from Spotify.
-     * @param {string} track_id The Spotify track id.
-     * @return {Promise<string>} The lyrics of the track in JSON format.
-     */
-    async getLyrics(track_id) {
-        const token = await this.getAccessToken();
-        const formated_url = `${this.lyrics_url}${track_id}?format=json&market=from_token`;
-
-        try {
-            const response = await axios.get(formated_url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Safari/537.36',
-                    'App-platform': 'WebPlayer',
-                    Authorization: `Bearer ${token}`
-                }
-            });
-            return response.data;
-        } catch (error) {
-            throw new Error('Failed to fetch lyrics: ' + error.message);
-        }
-    }
-
-    /**
-     * Converts lyrics from milliseconds format to LRC format.
-     * @param {Array} lyrics The lyrics of the track in JSON format.
-     * @return {Array} The lyrics in LRC format.
-     */
-    getLrcLyrics(lyrics) {
-        return lyrics.map(line => ({
-            timeTag: this.formatMS(line.startTimeMs),
-            words: line.words
-        }));
-    }
-
-    /**
-     * Converts lyrics from milliseconds format to SRT format.
-     * @param {Array} lyrics The lyrics of the track in JSON format.
-     * @return {Array} The lyrics in SRT format.
-     */
-    getSrtLyrics(lyrics) {
-        return lyrics.slice(1).map((line, i) => ({
-            index: i + 1,
-            startTime: this.formatSRT(lyrics[i].startTimeMs),
-            endTime: this.formatSRT(line.startTimeMs),
-            words: lyrics[i].words
-        }));
-    }
-
-    /**
-     * Helper function to convert milliseconds to [mm:ss.xx] format for LRC.
-     * @param {number} milliseconds The time in milliseconds.
-     * @return {string} The formatted time.
-     */
-    formatMS(milliseconds) {
-        const th_secs = Math.floor(milliseconds / 1000);
-        return `${String(Math.floor(th_secs / 60)).padStart(2, '0')}:${String(th_secs % 60).padStart(2, '0')}.${String((milliseconds % 1000) / 10).padStart(2, '0')}`;
-    }
-
-    /**
-     * Helper function to convert milliseconds to hh:mm:ss,ms format for SRT.
-     * @param {number} milliseconds The time in milliseconds.
-     * @return {string} The formatted time.
-     */
-    formatSRT(milliseconds) {
-        const hours = Math.floor(milliseconds / 3600000);
-        const minutes = Math.floor((milliseconds % 3600000) / 60000);
-        const seconds = Math.floor((milliseconds % 60000) / 1000);
-        const ms = milliseconds % 1000;
-        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
-    }
-}
-
-module.exports = Lyrics;
+  } catch (error) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
