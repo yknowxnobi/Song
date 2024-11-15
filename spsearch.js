@@ -108,7 +108,7 @@ module.exports = async (req, res) => {
       const accessToken = await getAccessToken();
       const albumDetails = await getAlbumDetails(accessToken, spotifyUrl);
       return res.status(200).json({
-        tracks: albumDetails.tracks,
+        tracks: albumDetails,
         developerCredit: 'https://t.me/Teleservices_Api'
       });
     } else if (query) {
