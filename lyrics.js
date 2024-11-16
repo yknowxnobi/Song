@@ -1,54 +1,41 @@
-const fetch = require('node-fetch');
-
-const sp_dc = 'AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_';
-
-const getToken = async () => {
-  const response = await fetch('https://open.spotify.com/get_access_token?reason=transport&productType=web_player', {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Safari/537.36',
-      'App-platform': 'WebPlayer',
-      'cookie': `sp_dc=${sp_dc};`,
-    },
-  });
-
-  const tokenData = await response.json();
-
-  if (!tokenData || tokenData.isAnonymous) {
-    throw new Error('Invalid SP_DC token');
-  }
-
-  return tokenData.accessToken;
-};
-
-const getLyrics = async (track_id) => {
-  const token = await getToken();
-
-  const response = await fetch(`https://spclient.wg.spotify.com/color-lyrics/v2/track/${track_id}?format=json&market=from_token`, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Safari/537.36',
-      'authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch lyrics');
-  }
-
-  const lyricsData = await response.json();
-  return lyricsData;
-};
+const axios = require('axios');
 
 module.exports = async (req, res) => {
-  const { track_id } = req.query;
+  let trackId = req.query.trackid || null;
+  const spotifyUrl = req.query.url || null;
+  const format = req.query.format || 'id3';
 
-  if (!track_id) {
-    return res.status(400).json({ error: 'track_id is required' });
+  // Parse track ID from the URL if provided
+  if (spotifyUrl) {
+    try {
+      const urlParts = spotifyUrl.split('/');
+      const possibleId = urlParts[urlParts.length - 1].split('?')[0];
+      trackId = possibleId || trackId;
+    } catch (error) {
+      return res.status(400).json({ status: 'error', message: 'Invalid Spotify URL format' });
+    }
+  }
+
+  if (!trackId) {
+    return res.status(400).json({ status: 'error', message: 'trackid or url is required' });
   }
 
   try {
-    const lyrics = await getLyrics(track_id);
-    res.status(200).json(lyrics);
+    const apiUrl = `https://spotify-lyrics-api-pi.vercel.app?trackid=${trackId}&format=${format}`;
+    const response = await axios.get(apiUrl);
+
+    if (response.data.error) {
+      return res.status(404).json({ status: 'error', message: 'Lyrics not found' });
+    }
+
+    const lyricsLines = response.data.lines.map(line => line.words).join('\n');
+
+    return res.status(200).json({
+      status: 'success',
+      lyrics: lyricsLines,
+      lines: response.data.lines
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 };
