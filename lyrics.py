@@ -47,7 +47,7 @@ async def get_metadata_data(track_id: str):
             else:
                 return {"status": "error", "metadata": {}}
 
-@app.get("/get_lyrics")
+@app.get("/spotify/lyrics")
 async def get_lyrics(id: str = None, url: str = None):
     # If URL is provided, extract track ID from it
     if url:
