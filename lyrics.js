@@ -1,47 +1,55 @@
 const axios = require('axios');
 
 module.exports = async (req, res) => {
-  let trackId = req.query.trackid || null;
-  const spotifyUrl = req.query.url || null;
-  const format = req.query.format || 'id3';
+  // Get the trackid from the URL parameters
+  const { id } = req.query;
 
-  // Parse track ID from the Spotify URL if provided
-  if (spotifyUrl) {
-    try {
-      trackId = spotifyUrl.split('/').pop().split('?')[0]; // Extract the last part of the URL (track ID)
-    } catch (error) {
-      return res.status(400).json({ status: 'error', message: 'Invalid Spotify URL format' });
-    }
+  // If no trackid is provided, return an error response
+  if (!id) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Track ID is required',
+    });
   }
 
-  if (!trackId) {
-    return res.status(400).json({ status: 'error', message: 'trackid or url is required' });
-  }
+  // Define the API URL using the trackid
+  const apiUrl = `https://spotify-lyrics-api-pi.vercel.app?trackid=${id}&format=id3`;
 
   try {
-    const apiUrl = `https://spotify-lyrics-api-pi.vercel.app?trackid=${trackId}`;
+    // Make a GET request to the API
     const response = await axios.get(apiUrl);
 
-    if (response.status === 200 && response.data) {
-      // Prepare the custom response
-      const lines = response.data.lines || [];
-      const fullLyrics = lines.map(line => line.words).join('\n');
-
-      return res.status(200).json({
-        status: 'success',
-        lyrics: fullLyrics,
-        lines: response.data.lines
+    // Check if there is an error in the API response
+    if (response.data.error) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to fetch lyrics',
       });
-    } else {
-      return res.status(404).json({ status: 'error', message: 'Lyrics not found for the provided track ID' });
     }
-  } catch (error) {
-    // Log the detailed error for debugging
-    console.error('Error fetching lyrics:', error.message);
 
-    return res.status(500).json({
+    // Initialize the full lyrics string and raw lines
+    const rawLines = response.data.lines || [];
+    let fullLyrics = '';
+
+    // Collect all lines into the full lyrics string
+    rawLines.forEach((line) => {
+      fullLyrics += `${line.words}\n`;
+    });
+
+    // Create the response object
+    const formattedResponse = {
+      status: 'success',
+      lyrics: fullLyrics.trim(),  // Remove trailing newline
+      lines: rawLines,  // Return the raw lines from the API
+    };
+
+    // Send the formatted response back to the client
+    res.status(200).json(formattedResponse);
+  } catch (error) {
+    console.error('Error fetching lyrics:', error);
+    res.status(500).json({
       status: 'error',
-      message: `Internal server error: ${error.message}`,
+      message: 'Internal Server Error',
     });
   }
 };
