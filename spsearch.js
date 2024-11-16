@@ -28,7 +28,7 @@ const searchSongs = async (accessToken, query, limit = 30, offset = 0) => {
       limit,
       offset
     }
-  }; 
+  };
   const response = await axios.get(searchUrl, options);
   return response.data;
 };
@@ -87,32 +87,41 @@ const getPlaylistDetails = async (accessToken, playlistUrl) => {
     tracks
   };
 };
-    
+
+const isAlbumOrPlaylistOrTrack = (url) => {
+  if (url.includes('/album/')) return 'album';
+  if (url.includes('/playlist/')) return 'playlist';
+  if (url.includes('/track/')) return 'track';
+  return null;
+};
+
 module.exports = async (req, res) => {
   const query = req.query.q;
   const spotifyUrl = req.query.url;
   const limit = parseInt(req.query.limit, 10) || 30;
   const offset = parseInt(req.query.offset, 10) || 0;
-  const isAlbum = req.query.album === 'true';
-  const isPlaylist = req.query.playlist === 'true';
-  
+
   try {
-    if (spotifyUrl && isPlaylist) {
-      const accessToken = await getAccessToken();
+    const urlType = isAlbumOrPlaylistOrTrack(spotifyUrl);
+    const accessToken = await getAccessToken();
+
+    if (urlType === 'playlist') {
       const playlistDetails = await getPlaylistDetails(accessToken, spotifyUrl);
       return res.status(200).json({
         data: playlistDetails,
         developerCredit: 'https://t.me/Teleservices_Api'
       });
-    } else if (spotifyUrl && isAlbum) {
-      const accessToken = await getAccessToken();
+    } else if (urlType === 'album') {
       const albumDetails = await getAlbumDetails(accessToken, spotifyUrl);
       return res.status(200).json({
         tracks: albumDetails.tracks,
         developerCredit: 'https://t.me/Teleservices_Api'
       });
+    } else if (urlType === 'track') {
+      const trackDownloadUrl = `https://song-teleservice.vercel.app/spotify/down?url=${spotifyUrl}`;
+      const response = await axios.get(trackDownloadUrl);
+      return res.status(200).send(response.data); // Send raw response for the track download
     } else if (query) {
-      const accessToken = await getAccessToken();
       if (limit > 50) {
         const firstLimit = 50;
         const secondLimit = limit - 50;
@@ -127,31 +136,31 @@ module.exports = async (req, res) => {
           const previewUrl = track.preview_url || 'No preview available';
           const image = track.album.images.length > 0 ? track.album.images[0].url : 'No image available';
           const artists = track.artists.map(artist => ({
-              name: artist.name,
-              spotifyUrl: artist.external_urls.spotify,
-              id: artist.id,
-              uri: artist.uri
-            }));
-            const duration = new Date(track.duration_ms).toISOString().substr(14, 5);
-            return {
-              id: index + 1,
-              trackName: track.name,
-              artists,
-              artist: track.artists.map(artist => artist.name).join(', '),
-              album: track.album.name,
-              albumType: track.album.album_type,
-              albumExternalUrl: track.album.external_urls.spotify,
-              releaseDate: track.album.release_date,
-              spotifyUrl: track.external_urls.spotify,
-              previewUrl,
-              image,
-              duration,
-              popularity: track.popularity,
-              explicit: track.explicit,
-              trackUri: track.uri,
-              durationMs: track.duration_ms,
-              totalTracksInAlbum: track.album.total_tracks
-            };
+            name: artist.name,
+            spotifyUrl: artist.external_urls.spotify,
+            id: artist.id,
+            uri: artist.uri
+          }));
+          const duration = new Date(track.duration_ms).toISOString().substr(14, 5);
+          return {
+            id: index + 1,
+            trackName: track.name,
+            artists,
+            artist: track.artists.map(artist => artist.name).join(', '),
+            album: track.album.name,
+            albumType: track.album.album_type,
+            albumExternalUrl: track.album.external_urls.spotify,
+            releaseDate: track.album.release_date,
+            spotifyUrl: track.external_urls.spotify,
+            previewUrl,
+            image,
+            duration,
+            popularity: track.popularity,
+            explicit: track.explicit,
+            trackUri: track.uri,
+            durationMs: track.duration_ms,
+            totalTracksInAlbum: track.album.total_tracks
+          };
         });
         return res.status(200).json({
           tracks: trackDetailsList,
