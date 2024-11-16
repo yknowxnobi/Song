@@ -3,6 +3,8 @@ from fastapi.responses import JSONResponse
 import requests
 import json
 import re
+import asyncio
+import aiohttp
 
 # Initialize the FastAPI app
 app = FastAPI()
@@ -16,7 +18,36 @@ def extract_track_id_from_url(url: str) -> str:
     else:
         raise HTTPException(status_code=400, detail="Invalid Spotify URL")
 
-@app.get("/spotify/lyrics")
+# Asynchronous function to fetch lyrics data
+async def get_lyrics_data(track_id: str):
+    api_url = f"https://spotify-lyrics-api-pi.vercel.app?trackid={track_id}&format=id3"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(api_url) as response:
+            if response.status == 200:
+                data = await response.json()
+                return data
+            else:
+                return {"status": "error", "lyrics": "", "lines": []}
+
+# Asynchronous function to fetch metadata data
+async def get_metadata_data(track_id: str):
+    api_url = f"https://api.spotifydown.com/metadata/track/{track_id}"
+    headers = {
+        'sec-ch-ua-platform': '"Android"',
+        'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+        'accept': '*/*',
+        'origin': 'https://spotifydown.com',
+        'referer': 'https://spotifydown.com/',
+        'accept-language': 'en-US,en;q=0.9',
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.get(api_url, headers=headers) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                return {"status": "error", "metadata": {}}
+
+@app.get("/get_lyrics")
 async def get_lyrics(id: str = None, url: str = None):
     # If URL is provided, extract track ID from it
     if url:
@@ -26,38 +57,19 @@ async def get_lyrics(id: str = None, url: str = None):
     if not id:
         raise HTTPException(status_code=400, detail="Either 'id' or 'url' must be provided")
 
-    # Define the API endpoint with the trackid parameter from the query
-    api_url = f"https://spotify-lyrics-api-pi.vercel.app?trackid={id}&format=id3"
-    
-    # Send a request to the API
-    response = requests.get(api_url)
+    # Fetch both lyrics and metadata in parallel
+    lyrics_data = await get_lyrics_data(id)
+    metadata_data = await get_metadata_data(id)
 
-    # Check if the request was successful
-    if response.status_code == 200:
-        data = response.json()
-
-        # Initialize an empty string for full lyrics
-        full_lyrics = ""
-
-        # Initialize the raw lines (no modification)
-        raw_lines = data.get("lines", [])
-
-        # Check if there's no error in the response
-        if not data.get("error", True):
-            # Collect all lines and concatenate them into full_lyrics
-            for line in raw_lines:
-                words = line.get("words", "")
-                full_lyrics += words + "\n"
-            
-            # Create the final response
-            formatted_response = {
-                "status": "success",
-                "lyrics": full_lyrics.strip(),  # Remove trailing newline
-                "lines": raw_lines  # Preserve the raw lines as they are
-            }
-        else:
-            formatted_response = {"status": "error", "lyrics": "", "lines": []}
+    # Combine both responses into a single response
+    if not lyrics_data.get("error", True) and not metadata_data.get("error", True):
+        formatted_response = {
+            "status": "success",
+            "lyrics": lyrics_data.get("lyrics", ""),
+            "lines": lyrics_data.get("lines", []),
+            "metadata": metadata_data  # Include metadata in the response
+        }
     else:
-        formatted_response = {"status": "error", "lyrics": "", "lines": []}
+        formatted_response = {"status": "error", "lyrics": "", "lines": [], "metadata": {}}
 
     return JSONResponse(content=formatted_response)
