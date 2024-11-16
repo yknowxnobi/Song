@@ -6,7 +6,7 @@ import json
 # Initialize the FastAPI app
 app = FastAPI()
 
-@app.get("/get_lyrics")
+@app.get("/spotify/lyrics")
 async def get_lyrics(id: str):
     # Define the API endpoint with the trackid parameter from the query
     url = f"https://spotify-lyrics-api-pi.vercel.app?trackid={id}&format=id3"
