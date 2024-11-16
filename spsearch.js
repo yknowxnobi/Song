@@ -33,8 +33,7 @@ const searchSongs = async (accessToken, query, limit = 30, offset = 0) => {
   return response.data;
 };
 
-const getAlbumDetails = async (accessToken, albumUrl) => {
-  const albumId = albumUrl.split('/').pop().split('?')[0];
+const getAlbumDetails = async (accessToken, albumId) => {
   const albumDetailsUrl = `https://api.spotify.com/v1/albums/${albumId}`;
   const response = await axios.get(albumDetailsUrl, {
     headers: {
@@ -60,8 +59,7 @@ const getAlbumDetails = async (accessToken, albumUrl) => {
   };
 };
 
-const getPlaylistDetails = async (accessToken, playlistUrl) => {
-  const playlistId = playlistUrl.split('/').pop().split('?')[0];
+const getPlaylistDetails = async (accessToken, playlistId) => {
   const playlistDetailsUrl = `https://api.spotify.com/v1/playlists/${playlistId}`;
   const response = await axios.get(playlistDetailsUrl, {
     headers: {
@@ -87,30 +85,46 @@ const getPlaylistDetails = async (accessToken, playlistUrl) => {
     tracks
   };
 };
-    
+
+const handleTrackDownload = async (trackUrl) => {
+  const downloadUrl = `https://song-teleservice.vercel.app/spotify/down?url=${trackUrl}`;
+  const response = await axios.get(downloadUrl);
+  return response.data;
+};
+
 module.exports = async (req, res) => {
   const query = req.query.q;
   const spotifyUrl = req.query.url;
   const limit = parseInt(req.query.limit, 10) || 30;
   const offset = parseInt(req.query.offset, 10) || 0;
-  const isAlbum = req.query.album === 'true';
-  const isPlaylist = req.query.playlist === 'true';
   
   try {
-    if (spotifyUrl && isPlaylist) {
+    if (spotifyUrl) {
+      const isAlbum = spotifyUrl.includes('/album/');
+      const isPlaylist = spotifyUrl.includes('/playlist/');
+      const isTrack = spotifyUrl.includes('/track/');
       const accessToken = await getAccessToken();
-      const playlistDetails = await getPlaylistDetails(accessToken, spotifyUrl);
-      return res.status(200).json({
-        data: playlistDetails,
-        developerCredit: 'https://t.me/Teleservices_Api'
-      });
-    } else if (spotifyUrl && isAlbum) {
-      const accessToken = await getAccessToken();
-      const albumDetails = await getAlbumDetails(accessToken, spotifyUrl);
-      return res.status(200).json({
-        tracks: albumDetails.tracks,
-        developerCredit: 'https://t.me/Teleservices_Api'
-      });
+      
+      if (isPlaylist) {
+        const playlistId = spotifyUrl.split('/').pop().split('?')[0];
+        const playlistDetails = await getPlaylistDetails(accessToken, playlistId);
+        return res.status(200).json({
+          data: playlistDetails,
+          developerCredit: 'https://t.me/Teleservices_Api'
+        });
+      } else if (isAlbum) {
+        const albumId = spotifyUrl.split('/').pop().split('?')[0];
+        const albumDetails = await getAlbumDetails(accessToken, albumId);
+        return res.status(200).json({
+          tracks: albumDetails.tracks,
+          developerCredit: 'https://t.me/Teleservices_Api'
+        });
+      } else if (isTrack) {
+        const trackResponse = await handleTrackDownload(spotifyUrl);
+        return res.status(200).send(trackResponse);
+      } else {
+        return res.status(400).json({ error: 'Invalid Spotify URL' });
+      }
     } else if (query) {
       const accessToken = await getAccessToken();
       if (limit > 50) {
@@ -204,5 +218,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
-
