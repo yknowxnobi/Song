@@ -22,12 +22,15 @@ def extract_track_id_from_url(url: str) -> str:
 async def get_lyrics_data(track_id: str):
     api_url = f"https://spotify-lyrics-api-pi.vercel.app?trackid={track_id}&format=id3"
     async with aiohttp.ClientSession() as session:
-        async with session.get(api_url) as response:
-            if response.status == 200:
-                data = await response.json()
-                return data
-            else:
-                return {"status": "error", "lyrics": "", "lines": []}
+        try:
+            async with session.get(api_url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data
+                else:
+                    raise HTTPException(status_code=response.status, detail="Error fetching lyrics data")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching lyrics: {str(e)}")
 
 # Asynchronous function to fetch metadata data
 async def get_metadata_data(track_id: str):
@@ -41,35 +44,49 @@ async def get_metadata_data(track_id: str):
         'accept-language': 'en-US,en;q=0.9',
     }
     async with aiohttp.ClientSession() as session:
-        async with session.get(api_url, headers=headers) as response:
-            if response.status == 200:
-                return await response.json()
-            else:
-                return {"status": "error", "metadata": {}}
+        try:
+            async with session.get(api_url, headers=headers) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    raise HTTPException(status_code=response.status, detail="Error fetching metadata data")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching metadata: {str(e)}")
 
 @app.get("/spotify/lyrics")
 async def get_lyrics(id: str = None, url: str = None):
     # If URL is provided, extract track ID from it
     if url:
-        id = extract_track_id_from_url(url)
+        try:
+            id = extract_track_id_from_url(url)
+        except HTTPException as e:
+            raise e  # If URL extraction fails, raise HTTPException
     
     # If neither id nor url is provided, raise an error
     if not id:
         raise HTTPException(status_code=400, detail="Either 'id' or 'url' must be provided")
 
-    # Fetch both lyrics and metadata in parallel
-    lyrics_data = await get_lyrics_data(id)
-    metadata_data = await get_metadata_data(id)
+    try:
+        # Fetch both lyrics and metadata in parallel
+        lyrics_data, metadata_data = await asyncio.gather(
+            get_lyrics_data(id),
+            get_metadata_data(id)
+        )
 
-    # Combine both responses into a single response
-    if not lyrics_data.get("error", True) and not metadata_data.get("error", True):
+        # Combine both responses into a single response
+        if lyrics_data.get("error", True) or metadata_data.get("error", True):
+            raise HTTPException(status_code=500, detail="Error in retrieving either lyrics or metadata")
+
         formatted_response = {
             "status": "success",
             "lyrics": lyrics_data.get("lyrics", ""),
             "lines": lyrics_data.get("lines", []),
             "metadata": metadata_data  # Include metadata in the response
         }
-    else:
-        formatted_response = {"status": "error", "lyrics": "", "lines": [], "metadata": {}}
 
-    return JSONResponse(content=formatted_response)
+        return JSONResponse(content=formatted_response)
+    
+    except HTTPException as e:
+        raise e  # Reraise any HTTPException raised during the lyrics or metadata fetching
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
