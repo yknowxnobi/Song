@@ -24,18 +24,9 @@ module.exports = async (req, res) => {
     const apiUrl = `https://spotify-lyrics-api-pi.vercel.app?trackid=${trackId}&format=${format}`;
     const response = await axios.get(apiUrl);
 
-    if (response.data.error) {
-      return res.status(404).json({ status: 'error', message: 'Lyrics not found' });
-    }
-
-    const lyricsLines = response.data.lines.map(line => line.words).join('\n');
-
-    return res.status(200).json({
-      status: 'success',
-      lyrics: lyricsLines,
-      lines: response.data.lines
-    });
+    // Directly send the raw response from the external API
+    return res.status(200).json(response.data);
   } catch (error) {
-    return res.status(500).json({ status: 'error', message: 'Internal server error' });
+    return res.status(500).json({ status: 'error', message: 'Internal server error'+error });
   }
 };
