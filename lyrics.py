@@ -74,9 +74,9 @@ async def get_lyrics(id: str = None, url: str = None):
                 # Prepare the final response
                 formatted_response = {
                     "status": "success",
+                    "details": metadata_response,
                     "lyrics": full_lyrics.strip(),
-                    "lines": raw_lines,
-                    "metadata": metadata_response  # Include metadata in the response
+                    "lines": raw_lines
                 }
             else:
                 formatted_response = {"status": "error", "lyrics": "", "lines": [], "metadata": metadata_response}
