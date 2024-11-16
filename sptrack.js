@@ -12,55 +12,53 @@ const getAccessToken = async () => {
     },
     data: 'grant_type=client_credentials'
   };
-
   const response = await axios.post(tokenUrl, authOptions.data, { headers: authOptions.headers });
   return response.data.access_token;
 };
 
-const getTrackDetails = async (accessToken, trackUrl) => {
-  const trackId = trackUrl.split('/').pop().split('?')[0];
+const getTrackDetails = async (accessToken, trackUrlOrId) => {
+  const trackId = trackUrlOrId.includes('spotify.com') 
+    ? trackUrlOrId.split('/').pop().split('?')[0]
+    : trackUrlOrId;
+  
   const trackDetailsUrl = `https://api.spotify.com/v1/tracks/${trackId}`;
-
   const response = await axios.get(trackDetailsUrl, {
     headers: {
       'Authorization': `Bearer ${accessToken}`
     }
   });
-  
   const trackInfo = response.data;
-  const artists = trackInfo.artists.map(artist => ({
-    name: artist.name,
-    spotifyUrl: artist.external_urls.spotify,
-    id: artist.id,
-    uri: artist.uri
-  }));
 
   return {
     trackName: trackInfo.name,
-    artists,
-    album: trackInfo.album.name,
-    albumType: trackInfo.album.album_type,
-    albumExternalUrl: trackInfo.album.external_urls.spotify,
-    releaseDate: trackInfo.album.release_date,
-    spotifyUrl: trackInfo.external_urls.spotify,
-    previewUrl: trackInfo.preview_url || 'No preview available',
-    image: trackInfo.album.images.length > 0 ? trackInfo.album.images[0].url : 'No image available',
+    artists: trackInfo.artists.map(artist => ({
+      name: artist.name,
+      spotifyUrl: artist.external_urls.spotify
+    })),
+    album: {
+      name: trackInfo.album.name,
+      releaseDate: trackInfo.album.release_date,
+      totalTracks: trackInfo.album.total_tracks,
+      imageUrl: trackInfo.album.images[0]?.url
+    },
     duration: new Date(trackInfo.duration_ms).toISOString().substr(14, 5),
     popularity: trackInfo.popularity,
     explicit: trackInfo.explicit,
-    trackUri: trackInfo.uri,
-    durationMs: trackInfo.duration_ms,
-    totalTracksInAlbum: trackInfo.album.total_tracks
+    previewUrl: trackInfo.preview_url || 'No preview available',
+    spotifyUrl: trackInfo.external_urls.spotify
   };
 };
 
 module.exports = async (req, res) => {
-  const trackUrl = req.query.url;
+  const trackUrlOrId = req.query.url || req.query.id;
+  
+  if (!trackUrlOrId) {
+    return res.status(400).json({ error: 'Track URL or ID is required' });
+  }
 
   try {
     const accessToken = await getAccessToken();
-    const trackDetails = await getTrackDetails(accessToken, trackUrl);
-
+    const trackDetails = await getTrackDetails(accessToken, trackUrlOrId);
     return res.status(200).json({
       data: trackDetails,
       developerCredit: 'https://t.me/Teleservices_Api'
