@@ -4,6 +4,10 @@
     {
       "src": "*.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "*.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
@@ -21,7 +25,7 @@
     },
     {
       "src": "/spotify/lyrics",
-      "dest": "/lyrics.js"
+      "dest": "/lyrics.py"
     },
     {
       "src": "/song",
