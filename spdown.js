@@ -34,6 +34,7 @@ app.get('/spotify/down', async (req, res) => {
 
     const finalResult = {
       status: true,
+      id,
       title: name,
       image: image,
       artist: artists,
