@@ -19,12 +19,19 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const apiUrl = `https://spotify-lyrics-api-pi.vercel.app?trackid=${trackId}&format=${format}`;
+    const apiUrl = `https://spotify-lyrics-api-pi.vercel.app?trackid=${trackId}`;
     const response = await axios.get(apiUrl);
 
     if (response.status === 200 && response.data) {
-      // Send the raw response from the external API
-      return res.status(200).json(response.data);
+      // Prepare the custom response
+      const lines = response.data.lines || [];
+      const fullLyrics = lines.map(line => line.words).join('\n');
+
+      return res.status(200).json({
+        status: 'success',
+        lyrics: fullLyrics,
+        lines: response.data.lines
+      });
     } else {
       return res.status(404).json({ status: 'error', message: 'Lyrics not found for the provided track ID' });
     }
