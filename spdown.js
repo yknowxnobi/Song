@@ -66,7 +66,8 @@ app.get('/spotify/down', async (req, res) => {
       album: trackMetadata.album,
       cover: trackMetadata.cover,
       isrc: trackMetadata.isrc,
-      releaseDate: trackMetadata.releaseDate
+      releaseDate: trackMetadata.releaseDate,
+      spotify_url: `https://open.spotify.com/track/${id}`
     };
 
     res.json(finalResult);
