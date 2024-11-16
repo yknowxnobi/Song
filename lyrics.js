@@ -1,4 +1,4 @@
-const axios = require('axios');
+const fetch = require('node-fetch');
 
 module.exports = async (req, res) => {
   // Get the trackid from the URL parameters
@@ -16,11 +16,22 @@ module.exports = async (req, res) => {
   const apiUrl = `https://spotify-lyrics-api-pi.vercel.app?trackid=${id}&format=id3`;
 
   try {
-    // Make a GET request to the API
-    const response = await axios.get(apiUrl);
+    // Make a GET request to the API using fetch
+    const response = await fetch(apiUrl);
 
-    // Check if there is an error in the API response
-    if (response.data.error) {
+    // If the response is not ok, return an error response
+    if (!response.ok) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to fetch lyrics',
+      });
+    }
+
+    // Parse the response JSON
+    const data = await response.json();
+
+    // If there's an error in the API response, return an error message
+    if (data.error) {
       return res.status(500).json({
         status: 'error',
         message: 'Failed to fetch lyrics',
@@ -28,7 +39,7 @@ module.exports = async (req, res) => {
     }
 
     // Initialize the full lyrics string and raw lines
-    const rawLines = response.data.lines || [];
+    const rawLines = data.lines || [];
     let fullLyrics = '';
 
     // Collect all lines into the full lyrics string
