@@ -93,7 +93,7 @@ const handleTrackDownload = async (trackUrl) => {
 };
 
 module.exports = async (req, res) => {
-  const query = req.query.q;
+  const query = req.query.q || req.query.name;
   const spotifyUrl = req.query.url;
   const limit = parseInt(req.query.limit, 10) || 30;
   const offset = parseInt(req.query.offset, 10) || 0;
