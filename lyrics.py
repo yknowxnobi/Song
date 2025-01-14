@@ -18,17 +18,17 @@ class TrackResponse(BaseModel):
     lines: list
 
 class Spotify:
-    def __init__(self, sp_dc, sp_key, token_url):
+    def __init__(self, sp_dc, sp_key):
         self.sp_dc = sp_dc
         self.sp_key = sp_key
-        self.token_url = token_url
+        self.auth_url = 'https://open.spotify.com/get_access_token'
         self.base_api_url = 'https://api.spotify.com/v1/'
         self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
 
     async def get_access_token(self):
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(self.token_url) as response:
+                async with session.get(self.auth_url, cookies={'sp_dc': self.sp_dc, 'sp_key': self.sp_key}) as response:
                     token_data = await response.json()
                     return token_data['accessToken']
         except Exception as e:
@@ -61,9 +61,7 @@ class Spotify:
         return match.group(1) if match else None
 
     async def fetch_data(self, track_url):
-        # Get the access token from the json response file
         access_token = await self.get_access_token()
-        
         track_details, lyrics = await asyncio.gather(
             self.get_track_details(access_token, track_url),
             self.get_lyrics(access_token, track_url)
@@ -103,9 +101,7 @@ class Spotify:
 async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None):
     sp_dc = "AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_"
     sp_key = "890acd67-3e50-4709-89ab-04e794616352"
-    token_url = "https://api.teleservices.io/Spotify/token.json"
-    
-    spotify = Spotify(sp_dc, sp_key, token_url)
+    spotify = Spotify(sp_dc, sp_key)
     
     # Determine the track URL from the request body or query parameters
     track_url_to_use = None
