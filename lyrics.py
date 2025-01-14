@@ -71,7 +71,7 @@ class Spotify:
             "status": "success",
             "details": self.format_track_details(track_details),
             "lyrics": self.get_combined_lyrics(lyrics['lyrics']['lines']) if 'lyrics' in lyrics else "No lyrics available",
-            
+            "raw_lyrics": lyrics if 'lyrics' in lyrics else "No raw lyrics available",
             "lines": lyrics['lyrics']['lines'] if 'lyrics' in lyrics else "No lyrics lines available"
         }
         return formatted_response
