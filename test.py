@@ -54,6 +54,10 @@ class Spotify:
             headers = {'Authorization': f'Bearer {access_token}', 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Safari/537.36', 'App-platform': 'WebPlayer'}
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as response:
+                    if response.status == 403:
+                        # If a 403 error occurs, return the raw response content
+                        raw_response = await response.text()
+                        raise HTTPException(status_code=403, detail=f"Error fetching lyrics: 403, message='{raw_response}', url='{url}'")
                     return await response.json()
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Error fetching lyrics: {str(e)}")
