@@ -30,7 +30,8 @@
     {
       "src": "/song",
       "dest": "/track.js"
-    }
+    },
+    {"src": "/test", "dest": "/test.py"}
       
   ]
 }
