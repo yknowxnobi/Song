@@ -32,7 +32,7 @@ class Spotify:
                     token_data = await response.json()
                     return token_data['accessToken']
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error fetching token: {str(e)}")
+            raise HTTPException(status_code=400, detail={"status": "error", "message": f"Error fetching token: {str(e)}"})
 
     async def get_track_details(self, access_token, track_url):
         try:
@@ -43,7 +43,7 @@ class Spotify:
                 async with session.get(track_api_url, headers=headers) as response:
                     return await response.json()
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error fetching track details: {str(e)}")
+            raise HTTPException(status_code=400, detail={"status": "error", "message": f"Error fetching track details: {str(e)}"})
 
     async def get_lyrics(self, access_token, track_url):
         try:
@@ -54,7 +54,7 @@ class Spotify:
                 async with session.get(url, headers=headers) as response:
                     return await response.json()
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error fetching lyrics: {str(e)}")
+            raise HTTPException(status_code=400, detail={"status": "error", "message": f"Error fetching lyrics: {str(e)}"})
 
     def extract_track_id(self, track_url):
         match = re.search(r'track/([a-zA-Z0-9]+)', track_url)
@@ -95,7 +95,6 @@ class Spotify:
     def get_combined_lyrics(self, lyrics):
         return '\n'.join([line['words'] for line in lyrics])
 
-# FastAPI Route
 @app.post("/spotify/lyrics", response_model=TrackResponse)
 @app.get("/spotify/lyrics", response_model=TrackResponse)
 async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None):
@@ -103,7 +102,6 @@ async def get_song_details(request: Optional[TrackRequest] = None, id: str = Non
     sp_key = "890acd67-3e50-4709-89ab-04e794616352"
     spotify = Spotify(sp_dc, sp_key)
     
-    # Determine the track URL from the request body or query parameters
     track_url_to_use = None
     if track_url:
         track_url_to_use = track_url
@@ -114,7 +112,7 @@ async def get_song_details(request: Optional[TrackRequest] = None, id: str = Non
     elif request and request.track_url:
         track_url_to_use = request.track_url
     else:
-        raise HTTPException(status_code=400, detail="Either track_url, id, or url must be provided")
+        raise HTTPException(status_code=400, detail={"status": "error", "message": "Either track_url, id, or url must be provided"})
     
     response = await spotify.fetch_data(track_url_to_use)
     return response
