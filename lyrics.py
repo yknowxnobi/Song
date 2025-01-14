@@ -1,8 +1,9 @@
+from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel
+from typing import Optional
 import asyncio
 import aiohttp
 import re
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from datetime import timedelta
 
 app = FastAPI()
@@ -97,9 +98,20 @@ class Spotify:
 # FastAPI Route
 @app.post("/spotify/lyrics", response_model=TrackResponse)
 @app.get("/spotify/lyrics", response_model=TrackResponse)
-async def get_song_details(request: TrackRequest):
+async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None):
     sp_dc = "AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_"
     sp_key = "890acd67-3e50-4709-89ab-04e794616352"
     spotify = Spotify(sp_dc, sp_key)
-    response = await spotify.fetch_data(request.url)
+    
+    # Determine the track URL from the request body or query parameters
+    if track_url:
+        track_url_to_use = track_url
+    elif id:
+        track_url_to_use = f'https://open.spotify.com/track/{id}'
+    elif request and request.track_url:
+        track_url_to_use = request.track_url
+    else:
+        raise HTTPException(status_code=400, detail="Either track_url or id must be provided")
+    
+    response = await spotify.fetch_data(track_url_to_use)
     return response
