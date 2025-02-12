@@ -28,7 +28,7 @@ const getDownloadLink = async (gid, track_id) => {
 // Function to get track metadata
 const getTrackMetadata = async (trackId) => {
   try {
-    const response = await axios.get(`https://api.spotifydown.com/metadata/track/${trackId}`, {
+    const response = await axios.get(`https://api.spotidownloader.com/metadata/track/${trackId}`, {
       headers: {
         'sec-ch-ua-platform': '"Android"',
         'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
