@@ -1,110 +1,72 @@
-const express = require('express');
-const axios = require('axios');
+import asyncio
+import httpx
+from bs4 import BeautifulSoup
+import re
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-const SP_DC = "AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_";
-const SP_KEY = "890acd67-3e50-4709-89ab-04e794616352";
-
-const getAccessToken = async () => {
-  try {
-    const response = await axios.get("https://open.spotify.com/get_access_token", {
-      headers: { "Content-Type": "application/json" },
-      withCredentials: true,
-      cookies: { sp_dc: SP_DC, sp_key: SP_KEY },
-    });
-    return response.data.accessToken;
-  } catch (error) {
-    throw new Error("Error fetching Spotify access token");
-  }
-};
-
-const getSpotifyTrackDetails = async (url) => {
-  try {
-    const response = await axios.get(`https://api.fabdl.com/spotify/get?url=${url}`);
-    return response.data.result;
-  } catch (error) {
-    throw new Error("Error fetching Spotify track details");
-  }
-};
-
-const getDownloadLink = async (gid, track_id) => {
-  try {
-    const response = await axios.get(`https://api.fabdl.com/spotify/mp3-convert-task/${gid}/${track_id}`);
-    return response.data.result;
-  } catch (error) {
-    throw new Error("Error fetching download link");
-  }
-};
-
-const getTrackMetadata = async (trackId, accessToken) => {
-  try {
-    const response = await axios.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    const track = response.data;
-    return {
-      id: track.id,
-      title: track.name,
-      artists: track.artists.map((artist) => artist.name).join(", "),
-      album: track.album.name,
-      releaseDate: track.album.release_date,
-      duration: new Date(track.duration_ms).toISOString().substr(14, 5),
-      duration_ms: track.duration_ms,
-      image: track.album.images[0]?.url || "",
-      spotify_url: track.external_urls.spotify,
-      popularity: track.popularity,
-    };
-  } catch (error) {
-    throw new Error("Error fetching track metadata");
-  }
-};
-
-app.get('/spotify/down', async (req, res) => {
-  const spotifyUrl = req.query.url;
-
-  if (!spotifyUrl) {
-    return res.status(400).json({ status: false, message: "Spotify URL is required" });
-  }
-
-  try {
-    const trackDetails = await getSpotifyTrackDetails(spotifyUrl);
-    const { gid, id, name, image, artists, duration_ms } = trackDetails;
-    const downloadTask = await getDownloadLink(gid, id);
-
-    if (!downloadTask.download_url) {
-      return res.status(500).json({ status: false, message: "Failed to retrieve download link" });
+async def scrape_and_post(url: str, spotify_url: str) -> str:
+    headers = {
+        'Sec-CH-UA': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        'Sec-CH-UA-Mobile': '?1',
+        'Sec-CH-UA-Platform': '"Android"',
+        'DNT': '1',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': '*/*',
+        'Origin': 'https://spotifymate.com',
+        'Referer': 'https://spotifymate.com/en',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-User': '?1',
+        'Sec-Fetch-Dest': 'document',
+        'Accept-Language': 'en-US,en;q=0.9',
     }
 
-    const accessToken = await getAccessToken();
-    const trackMetadata = await getTrackMetadata(id, accessToken);
+    cookies = {
+        "session_data": "1npg5osrtejnum5848d4qtr058",
+        "_ga": "GA1.1.685286815.1739594562",
+        "cf_clearance": "nj2uEjYb4EgaOnCrFugggEUkpb2NKylO.d5g_wBY5Og-1739596765-1.2.1.1-WADN6efQ5yKwt5KJN6Ohkb.pjRkG7tv4yP.5bs5_vBqEhg1s7JCyQyrVMfNHoWociV7t5S.0tarFs8Fw51GQ0io7ofI12fNSAbFtfazdLVenwFnhYXhS8VJ2ccw_FHwZTcAXef0BQzQLAWxLCxHSBDZlAFoqhQuWwxdGoGx6u.Y54lIVpjn_o0nG83ep9SMbyrGWsOxUtQDh_q.gK76018TIM9c93BCAJ7S6_Je972DzbTkA_NW3mQLs9qVhHYVhBPLtPbY2O7Yoo_zNcMs1Bv3BBa_CJ1Kd1BSIMDgP7n8",
+    }
 
-    const finalResult = {
-      status: true,
-      id,
-      title: name,
-      image: image,
-      artist: artists,
-      duration: new Date(duration_ms).toISOString().substr(14, 5),
-      duration_ms,
-      download_link: `https://api.fabdl.com${downloadTask.download_url}`,
-      album: trackMetadata.album,
-      cover: trackMetadata.image,
-      isrc: trackMetadata.isrc || "N/A",
-      releaseDate: trackMetadata.releaseDate,
-      spotify_url: `https://open.spotify.com/track/${id}`
-    };
+    async with httpx.AsyncClient(http2=True, timeout=10) as client:
+        # Step 1: Scrape the page
+        response = await client.get(url, headers=headers, cookies=cookies)
+        response.raise_for_status()
 
-    res.json(finalResult);
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message || "An error occurred" });
-  }
-});
+        soup = BeautifulSoup(response.text, 'html.parser')
+        hidden_input = soup.find('input', {'type': 'hidden'})
+        if not hidden_input:
+            raise Exception("Hidden input field not found")
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+        hidden_name = hidden_input.get('name')
+        hidden_value = hidden_input.get('value')
 
-module.exports = app;
+        # Step 2: Send POST request
+        boundary = "----WebKitFormBoundaryYbqgfXooGwQAzaQH"
+        post_data = (
+            f"{boundary}\r\n"
+            f'Content-Disposition: form-data; name="url"\r\n\r\n'
+            f'{spotify_url}\r\n'
+            f"{boundary}\r\n"
+            f'Content-Disposition: form-data; name="{hidden_name}"\r\n\r\n'
+            f'{hidden_value}\r\n'
+            f"{boundary}--\r\n"
+        )
+
+        post_headers = headers.copy()
+        post_headers.update({
+            'Content-Length': str(len(post_data)),
+            'Content-Type': f'multipart/form-data; boundary={boundary}',
+        })
+
+        post_url = 'https://spotifymate.com/action'
+        post_response = await client.post(post_url, headers=post_headers, cookies=cookies, content=post_data)
+        post_response.raise_for_status()
+
+        # Step 3: Extract Download Link
+        post_soup = BeautifulSoup(post_response.text, 'html.parser')
+        download_link = post_soup.find('a', onclick='showAd();')
+
+        if download_link:
+            return download_link.get('href')
+
+        raise Exception("Download link not found")
