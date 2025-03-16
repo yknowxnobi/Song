@@ -21,7 +21,7 @@ class Spotify:
     def __init__(self, sp_dc, sp_key):
         self.sp_dc = sp_dc
         self.sp_key = sp_key
-        self.auth_url = 'https://open.spotify.com/get_access_token'
+        self.auth_url = 'https://api.teleservices.io/Apis/sp_key.php'
         self.base_api_url = 'https://api.spotify.com/v1/'
         self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
 
