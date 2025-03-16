@@ -9,7 +9,7 @@ const SP_KEY = "890acd67-3e50-4709-89ab-04e794616352";
 
 const getAccessToken = async () => {
   try {
-    const response = await axios.get("https://open.spotify.com/get_access_token", {
+    const response = await axios.get("https://api.teleservices.io/Apis/sp_key.php", {
       headers: { "Content-Type": "application/json" },
       withCredentials: true,
       cookies: { sp_dc: SP_DC, sp_key: SP_KEY },
