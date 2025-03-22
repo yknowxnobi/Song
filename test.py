@@ -33,7 +33,7 @@ class Spotify:
         self.access_token_expiration = 0
 
     async def get_access_token(self):
-        if self.access_token and time.time() < self.access_token_expiration - 10:
+        if self.access_token and time.time() < self.access_token_expiration - 20:
             return self.access_token
         params = self.get_server_time_params()
         headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}
