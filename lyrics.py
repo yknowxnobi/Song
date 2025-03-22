@@ -13,166 +13,147 @@ import hashlib
 
 app = FastAPI()
 
+Global variables for token caching
+
 cached_access_token = None
 cached_token_expiration = None
 
 class TrackRequest(BaseModel):
-    track_url: str
+track_url: str
 
 class TrackResponse(BaseModel):
-    success: bool
-    message: Optional[str]
-    details: Optional[dict]
-    lyrics: Optional[str]
-    lines: Optional[list]
+status: str
+details: dict
+lyrics: str
+lines: list
 
 class Spotify:
-    def __init__(self, sp_dc):
-        self.sp_dc = sp_dc
-        self.auth_url = 'https://open.spotify.com/get_access_token'
-        self.base_api_url = 'https://api.spotify.com/v1/'
-        self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
-        self.server_time_url = 'https://open.spotify.com/server-time'
+def init(self, sp_dc):
+self.sp_dc = sp_dc
+self.auth_url = 'https://open.spotify.com/get_access_token'
+self.base_api_url = 'https://api.spotify.com/v1/'
+self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
+self.server_time_url = 'https://open.spotify.com/server-time'
 
-    async def get_access_token(self):
-        global cached_access_token, cached_token_expiration
+async def get_access_token(self):  
+    global cached_access_token, cached_token_expiration  
 
-        if cached_access_token and cached_token_expiration and datetime.now() < cached_token_expiration:
-            return cached_access_token
+    # Check if the cached token is still valid  
+    if cached_access_token and cached_token_expiration and datetime.now() < cached_token_expiration:  
+        return cached_access_token  
 
-        params = self.get_server_time_params()
-        headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}
-        response = requests.get(self.auth_url, headers=headers, params=params)
+    # If not valid, generate a new token  
+    params = self.get_server_time_params()  
+    headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}  
+    response = requests.get(self.auth_url, headers=headers, params=params)  
+    token_data = response.json()  
 
-        if response.status_code != 200:
-            raise Exception("Failed to fetch access token")
+    if 'accessToken' in token_data:  
+        cached_access_token = token_data['accessToken']  
+        # Convert the expiration timestamp to a datetime object  
+        cached_token_expiration = datetime.fromtimestamp(token_data['accessTokenExpirationTimestampMs'] / 1000)  
+        return cached_access_token  
+    else:  
+        raise Exception("Failed to retrieve access token")  
 
-        token_data = response.json()
+def get_server_time_params(self):  
+    response = requests.get(self.server_time_url)  
+    server_time_data = response.json()  
+    server_time_seconds = server_time_data['serverTime']  
+    secret_cipher = [12, 56, 76, 33, 88, 44, 88, 33, 78, 78, 11, 66, 22, 22, 55, 69, 54]  
+    processed = [(byte ^ (i % 33 + 9)) for i, byte in enumerate(secret_cipher)]  
+    processed_str = ''.join(map(str, processed))  
+    secret_bytes = processed_str.encode('utf-8')  
+    secret_base32 = base64.b32encode(secret_bytes).decode('utf-8').rstrip('=')  
+    totp = self.generate_totp(secret_base32, server_time_seconds)  
+    timestamp = int(time.time())  
+    params = {  
+        'reason': 'transport',  
+        'productType': 'web_player',  
+        'totp': totp,  
+        'totpVer': '5',  
+        'ts': str(timestamp)  
+    }  
+    return params  
 
-        if 'accessToken' in token_data:
-            cached_access_token = token_data['accessToken']
-            cached_token_expiration = datetime.fromtimestamp(token_data['accessTokenExpirationTimestampMs'] / 1000)
-            return cached_access_token
-        else:
-            raise Exception("Token can't fetch")
+def generate_totp(self, secret_base32, timestamp):  
+    counter = timestamp // 30  
+    counter_bytes = counter.to_bytes(8, 'big')  
+    secret_bytes = base64.b32decode(secret_base32.upper() + '=' * (-len(secret_base32) % 8))  
+    hmac_hash = hmac.new(secret_bytes, counter_bytes, hashlib.sha1).digest()  
+    offset = hmac_hash[-1] & 0xf  
+    truncated_hash = hmac_hash[offset:offset + 4]  
+    code = int.from_bytes(truncated_hash, 'big') & 0x7fffffff  
+    return str(code)[-6:]  
 
-    def get_server_time_params(self):
-        response = requests.get(self.server_time_url)
-        server_time_data = response.json()
-        server_time_seconds = server_time_data['serverTime']
-        secret_cipher = [12, 56, 76, 33, 88, 44, 88, 33, 78, 78, 11, 66, 22, 22, 55, 69, 54]
-        processed = [(byte ^ (i % 33 + 9)) for i, byte in enumerate(secret_cipher)]
-        processed_str = ''.join(map(str, processed))
-        secret_bytes = processed_str.encode('utf-8')
-        secret_base32 = base64.b32encode(secret_bytes).decode('utf-8').rstrip('=')
-        totp = self.generate_totp(secret_base32, server_time_seconds)
-        timestamp = int(time.time())
-        params = {
-            'reason': 'transport',
-            'productType': 'web_player',
-            'totp': totp,
-            'totpVer': '5',
-            'ts': str(timestamp)
-        }
-        return params
+async def get_track_details(self, access_token, track_url):  
+    track_id = self.extract_track_id(track_url)  
+    track_api_url = f"{self.base_api_url}tracks/{track_id}"  
+    headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}  
+    async with aiohttp.ClientSession() as session:  
+        async with session.get(track_api_url, headers=headers) as response:  
+            return await response.json()  
 
-    def generate_totp(self, secret_base32, timestamp):
-        counter = timestamp // 30
-        counter_bytes = counter.to_bytes(8, 'big')
-        secret_bytes = base64.b32decode(secret_base32.upper() + '=' * (-len(secret_base32) % 8))
-        hmac_hash = hmac.new(secret_bytes, counter_bytes, hashlib.sha1).digest()
-        offset = hmac_hash[-1] & 0xf
-        truncated_hash = hmac_hash[offset:offset + 4]
-        code = int.from_bytes(truncated_hash, 'big') & 0x7fffffff
-        return str(code)[-6:]
+async def get_lyrics(self, access_token, track_url):  
+    track_id = self.extract_track_id(track_url)  
+    url = f'{self.lyrics_url}{track_id}?format=json&market=from_token'  
+    headers = {  
+        'Authorization': f'Bearer {access_token}',  
+        'User-Agent': 'Mozilla/5.0',  
+        'App-platform': 'WebPlayer'  
+    }  
+    async with aiohttp.ClientSession() as session:  
+        async with session.get(url, headers=headers) as response:  
+            return await response.json()  
 
-    async def get_track_details(self, access_token, track_url):
-        track_id = self.extract_track_id(track_url)
-        track_api_url = f"{self.base_api_url}tracks/{track_id}"
-        headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
-        async with aiohttp.ClientSession() as session:
-            async with session.get(track_api_url, headers=headers) as response:
-                if response.status != 200:
-                    raise Exception("Failed to fetch track details")
-                return await response.json()
+def extract_track_id(self, track_url):  
+    match = re.search(r'track/([a-zA-Z0-9]+)', track_url)  
+    return match.group(1) if match else None  
 
-    async def get_lyrics(self, access_token, track_url):
-        track_id = self.extract_track_id(track_url)
-        url = f'{self.lyrics_url}{track_id}?format=json&market=from_token'
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'User-Agent': 'Mozilla/5.0',
-            'App-platform': 'WebPlayer'
-        }
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as response:
-                if response.status != 200:
-                    raise Exception("Lyrics unavailable")
-                return await response.json()
+async def fetch_data(self, track_url):  
+    access_token = await self.get_access_token()  
+    track_details, lyrics = await asyncio.gather(  
+        self.get_track_details(access_token, track_url),  
+        self.get_lyrics(access_token, track_url)  
+    )  
+    formatted_response = {  
+        "status": "success",  
+        "details": self.format_track_details(track_details),  
+        "lyrics": self.get_combined_lyrics(lyrics['lyrics']['lines']) if 'lyrics' in lyrics else "No lyrics available",  
+        "lines": lyrics['lyrics']['lines'] if 'lyrics' in lyrics else "No lyrics lines available"  
+    }  
+    return formatted_response  
 
-    def extract_track_id(self, track_url):
-        match = re.search(r'track/([a-zA-Z0-9]+)', track_url)
-        return match.group(1) if match else None
+def format_track_details(self, track_details):  
+     return {  
+        'name': track_details['name'],  
+        'title': track_details['name'],  
+        'artists': track_details['artists'][0]['name'],  
+        'album': track_details['album']['name'],  
+        'release_date': track_details['album']['release_date'],  
+        'duration': self.format_duration(track_details['duration_ms']),  
+        'duration_ms': track_details['duration_ms'],  
+        'image_url': track_details['album']['images'][0]['url'],  
+        'cover': track_details['album']['images'][0]['url'],  
+        'track_url': track_details['external_urls']['spotify'],  
+        'popularity': track_details['popularity']  
+    }  
 
-    async def fetch_data(self, track_url):
-        try:
-            access_token = await self.get_access_token()
-        except Exception as e:
-            return {
-                "success": False,
-                "message": str(e),
-            }
+def format_duration(self, duration_ms):  
+    return str(timedelta(milliseconds=duration_ms))  
 
-        try:
-            track_details, lyrics = await asyncio.gather(
-                self.get_track_details(access_token, track_url),
-                self.get_lyrics(access_token, track_url)
-            )
-        except Exception as e:
-            return {
-                "success": False,
-                "message": str(e),
-            }
-
-        formatted_response = {
-            "success": True,
-            "message": "Data fetched successfully",
-            "details": self.format_track_details(track_details),
-            "lyrics": self.get_combined_lyrics(lyrics['lyrics']['lines']) if 'lyrics' in lyrics else "No lyrics available",
-            "lines": lyrics['lyrics']['lines'] if 'lyrics' in lyrics else []
-        }
-        return formatted_response
-
-    def format_track_details(self, track_details):
-        return {
-            'name': track_details['name'],
-            'title': track_details['name'],
-            'artists': track_details['artists'][0]['name'],
-            'album': track_details['album']['name'],
-            'release_date': track_details['album']['release_date'],
-            'duration': self.format_duration(track_details['duration_ms']),
-            'duration_ms': track_details['duration_ms'],
-            'image_url': track_details['album']['images'][0]['url'],
-            'cover': track_details['album']['images'][0]['url'],
-            'track_url': track_details['external_urls']['spotify'],
-            'popularity': track_details['popularity']
-        }
-
-    def format_duration(self, duration_ms):
-        return str(timedelta(milliseconds=duration_ms))
-
-    def get_combined_lyrics(self, lyrics):
-        return '\n'.join([line['words'] for line in lyrics])
+def get_combined_lyrics(self, lyrics):  
+    return '\n'.join([line['words'] for line in lyrics])
 
 @app.post("/spotify/lyrics", response_model=TrackResponse)
 @app.get("/spotify/lyrics", response_model=TrackResponse)
 async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None):
-    sp_dc = "AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_"
-    spotify = Spotify(sp_dc)
+sp_dc = "AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_"
+spotify = Spotify(sp_dc)
 
-    track_url_to_use = track_url or f'https://open.spotify.com/track/{id}' if id else url if url else request.track_url
-    if not track_url_to_use:
-        raise HTTPException(status_code=400, detail={"success": False, "message": "Either track_url, id, or url must be provided"})
+track_url_to_use = track_url or f'https://open.spotify.com/track/{id}' if id else url if url else request.track_url  
+if not track_url_to_use:  
+    raise HTTPException(status_code=400, detail="Either track_url, id, or url must be provided")  
 
-    response = await spotify.fetch_data(track_url_to_use)
-    return response
+response = await spotify.fetch_data(track_url_to_use)  
+return response
