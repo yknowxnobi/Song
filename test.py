@@ -30,7 +30,7 @@ class Spotify:
             async with aiohttp.ClientSession() as session:
                 async with session.get(self.auth_url, cookies={'sp_dc': self.sp_dc, 'sp_key': self.sp_key}) as response:
                     token_data = await response.json()
-                    return token_data['token_data'][access_token]
+                    return token_data['token_data']['access_token']
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Error fetching token: {str(e)}")
 
