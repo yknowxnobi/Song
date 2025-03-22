@@ -41,7 +41,7 @@ class Spotify:
         if self.access_token and time.time() < self.access_token_expiration - 10:
             return self.access_token
         params = self.get_server_time_params()
-        headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}
+        headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_t={self.sp_dc}'}
         async with aiohttp.ClientSession() as session:
             async with session.get(self.auth_url, headers=headers, params=params) as response:
                 raw_response = await response.text()
@@ -148,7 +148,7 @@ class Spotify:
 @app.post("/test", response_model=TrackResponse)
 @app.get("/test", response_model=TrackResponse)
 async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None):
-    sp_dc = "AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_"
+    sp_dc = "ca69fe79d8d1367cca2c7a1df55ba583"
     spotify = Spotify(sp_dc)
 
     track_url_to_use = track_url or f'https://open.spotify.com/track/{id}' if id else url if url else request.track_url
