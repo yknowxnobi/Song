@@ -4,7 +4,7 @@ from typing import Optional
 import asyncio
 import aiohttp
 import re
-from datetime import timedelta
+from datetime import timedelta, datetime
 import requests
 import time
 import base64
@@ -12,6 +12,10 @@ import hmac
 import hashlib
 
 app = FastAPI()
+
+# Global variables for token caching
+cached_access_token = None
+cached_token_expiration = None
 
 class TrackRequest(BaseModel):
     track_url: str
@@ -31,12 +35,23 @@ class Spotify:
         self.server_time_url = 'https://open.spotify.com/server-time'
 
     async def get_access_token(self):
+        global cached_access_token, cached_token_expiration
+
+        # Check if the cached token is still valid
+        if cached_access_token and cached_token_expiration and datetime.now() < cached_token_expiration:
+            return cached_access_token
+
+        # If not valid, generate a new token
         params = self.get_server_time_params()
         headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}
         response = requests.get(self.auth_url, headers=headers, params=params)
         token_data = response.json()
+
         if 'accessToken' in token_data:
-            return token_data['accessToken']
+            cached_access_token = token_data['accessToken']
+            # Convert the expiration timestamp to a datetime object
+            cached_token_expiration = datetime.fromtimestamp(token_data['accessTokenExpirationTimestampMs'] / 1000)
+            return cached_access_token
         else:
             raise Exception("Failed to retrieve access token")
 
