@@ -4,7 +4,7 @@ from typing import Optional
 import asyncio
 import aiohttp
 import re
-from datetime import timedelta
+from datetime import timedelta, datetime
 import requests
 import time
 import base64
@@ -29,16 +29,24 @@ class Spotify:
         self.base_api_url = 'https://api.spotify.com/v1/'
         self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
         self.server_time_url = 'https://open.spotify.com/server-time'
+        self.access_token = None
+        self.token_expiration = None
 
     async def get_access_token(self):
+        if self.access_token and self.token_expiration and self.token_expiration > int(time.time() * 1000):
+            return self.access_token
+
         params = self.get_server_time_params()
         headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}
         response = requests.get(self.auth_url, headers=headers, params=params)
         token_data = response.json()
+
         if 'accessToken' in token_data:
-            return token_data['accessToken']
+            self.access_token = token_data['accessToken']
+            self.token_expiration = token_data['accessTokenExpirationTimestampMs']
+            return self.access_token
         else:
-            raise Exception("Failed to retrieve access token")
+            raise HTTPException(status_code=500, detail="Failed to retrieve access token")
 
     def get_server_time_params(self):
         response = requests.get(self.server_time_url)
@@ -111,11 +119,14 @@ class Spotify:
     def format_track_details(self, track_details):
         return {
             'name': track_details['name'],
+            'title': track_details['name'],
             'artists': track_details['artists'][0]['name'],
             'album': track_details['album']['name'],
             'release_date': track_details['album']['release_date'],
             'duration': self.format_duration(track_details['duration_ms']),
+            'duration_ms': track_details['duration_ms'],
             'image_url': track_details['album']['images'][0]['url'],
+            'cover': track_details['album']['images'][0]['url'],
             'track_url': track_details['external_urls']['spotify'],
             'popularity': track_details['popularity']
         }
@@ -134,7 +145,10 @@ async def get_song_details(request: Optional[TrackRequest] = None, id: str = Non
 
     track_url_to_use = track_url or f'https://open.spotify.com/track/{id}' if id else url if url else request.track_url
     if not track_url_to_use:
-        raise HTTPException(status_code=400, detail="Either track_url, id, or url must be provided")
+        raise HTTPException(status_code=400, detail={"error": "Either track_url, id, or url must be provided"})
 
-    response = await spotify.fetch_data(track_url_to_use)
-    return response
+    try:
+        response = await spotify.fetch_data(track_url_to_use)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"error": str(e)})
