@@ -109,13 +109,16 @@ class Spotify:
         return formatted_response
 
     def format_track_details(self, track_details):
-        return {
+         return {
             'name': track_details['name'],
+            'title': track_details['name'],
             'artists': track_details['artists'][0]['name'],
             'album': track_details['album']['name'],
             'release_date': track_details['album']['release_date'],
             'duration': self.format_duration(track_details['duration_ms']),
+            'duration_ms': track_details['duration_ms'],
             'image_url': track_details['album']['images'][0]['url'],
+            'cover': track_details['album']['images'][0]['url'],
             'track_url': track_details['external_urls']['spotify'],
             'popularity': track_details['popularity']
         }
