@@ -1,14 +1,15 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 import asyncio
 import aiohttp
 import re
+from datetime import timedelta
+import requests
 import time
 import base64
 import hmac
 import hashlib
-from datetime import timedelta
 
 app = FastAPI()
 
@@ -28,24 +29,16 @@ class Spotify:
         self.base_api_url = 'https://api.spotify.com/v1/'
         self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
         self.server_time_url = 'https://open.spotify.com/server-time'
-        self.access_token = None
-        self.access_token_expiration = 0
 
     async def get_access_token(self):
-        if self.access_token and time.time() < self.access_token_expiration - 10:
-            return self.access_token
-
         params = self.get_server_time_params()
         headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.auth_url, headers=headers, params=params) as response:
-                token_data = await response.json()
-                if 'accessToken' in token_data:
-                    self.access_token = token_data['accessToken']
-                    self.access_token_expiration = token_data['accessTokenExpirationTimestampMs'] / 1000
-                    return self.access_token
-                else:
-                    raise HTTPException(status_code=500, detail="Failed to retrieve access token")
+        response = requests.get(self.auth_url, headers=headers, params=params)
+        token_data = response.json()
+        if 'accessToken' in token_data:
+            return token_data['accessToken']
+        else:
+            raise Exception("Failed to retrieve access token")
 
     def get_server_time_params(self):
         response = requests.get(self.server_time_url)
@@ -58,7 +51,14 @@ class Spotify:
         secret_base32 = base64.b32encode(secret_bytes).decode('utf-8').rstrip('=')
         totp = self.generate_totp(secret_base32, server_time_seconds)
         timestamp = int(time.time())
-        return {'reason': 'transport', 'productType': 'web_player', 'totp': totp, 'totpVer': '5', 'ts': str(timestamp)}
+        params = {
+            'reason': 'transport',
+            'productType': 'web_player',
+            'totp': totp,
+            'totpVer': '5',
+            'ts': str(timestamp)
+        }
+        return params
 
     def generate_totp(self, secret_base32, timestamp):
         counter = timestamp // 30
@@ -81,7 +81,11 @@ class Spotify:
     async def get_lyrics(self, access_token, track_url):
         track_id = self.extract_track_id(track_url)
         url = f'{self.lyrics_url}{track_id}?format=json&market=from_token'
-        headers = {'Authorization': f'Bearer {access_token}', 'User-Agent': 'Mozilla/5.0', 'App-platform': 'WebPlayer'}
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'User-Agent': 'Mozilla/5.0',
+            'App-platform': 'WebPlayer'
+        }
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers) as response:
                 return await response.json()
@@ -96,24 +100,22 @@ class Spotify:
             self.get_track_details(access_token, track_url),
             self.get_lyrics(access_token, track_url)
         )
-        return {
+        formatted_response = {
             "status": "success",
             "details": self.format_track_details(track_details),
             "lyrics": self.get_combined_lyrics(lyrics['lyrics']['lines']) if 'lyrics' in lyrics else "No lyrics available",
             "lines": lyrics['lyrics']['lines'] if 'lyrics' in lyrics else "No lyrics lines available"
         }
+        return formatted_response
 
     def format_track_details(self, track_details):
         return {
             'name': track_details['name'],
-            'title': track_details['name'],
             'artists': track_details['artists'][0]['name'],
             'album': track_details['album']['name'],
             'release_date': track_details['album']['release_date'],
             'duration': self.format_duration(track_details['duration_ms']),
-            'duration_ms': track_details['duration_ms'],
             'image_url': track_details['album']['images'][0]['url'],
-            'cover': track_details['album']['images'][0]['url'],
             'track_url': track_details['external_urls']['spotify'],
             'popularity': track_details['popularity']
         }
@@ -134,9 +136,5 @@ async def get_song_details(request: Optional[TrackRequest] = None, id: str = Non
     if not track_url_to_use:
         raise HTTPException(status_code=400, detail="Either track_url, id, or url must be provided")
 
-    try:
-        response = await spotify.fetch_data(track_url_to_use)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+    response = await spotify.fetch_data(track_url_to_use)
     return response
