@@ -22,6 +22,9 @@ class TrackResponse(BaseModel):
     lyrics: str
     lines: list
 
+class ErrorResponse(BaseModel):
+    error: dict
+
 class Spotify:
     def __init__(self, sp_dc):
         self.sp_dc = sp_dc
@@ -37,15 +40,28 @@ class Spotify:
             return self.access_token
         params = self.get_server_time_params()
         headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.auth_url, headers=headers, params=params) as response:
-                token_data = await response.json()
-                if 'accessToken' in token_data:
-                    self.access_token = token_data['accessToken']
-                    self.access_token_expiration = token_data['accessTokenExpirationTimestampMs'] / 1000
-                    return self.access_token
-                else:
-                    raise HTTPException(status_code=500, detail="Failed to retrieve access token")
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(self.auth_url, headers=headers, params=params) as response:
+                    token_data = await response.json()
+                    if 'accessToken' in token_data:
+                        self.access_token = token_data['accessToken']
+                        self.access_token_expiration = token_data['accessTokenExpirationTimestampMs'] / 1000
+                        return self.access_token
+                    else:
+                        raise HTTPException(status_code=500, detail={
+                            "error": {
+                                "request": f"GET {self.auth_url}",
+                                "response": token_data
+                            }
+                        })
+        except Exception as e:
+            raise HTTPException(status_code=500, detail={
+                "error": {
+                    "request": f"GET {self.auth_url} with params {params}",
+                    "response": str(e)
+                }
+            })
 
     def get_server_time_params(self):
         response = requests.get(self.server_time_url)
@@ -82,9 +98,25 @@ class Spotify:
         track_id = self.extract_track_id(track_url)
         url = f'{self.lyrics_url}{track_id}?format=json&market=from_token'
         headers = {'Authorization': f'Bearer {access_token}', 'User-Agent': 'Mozilla/5.0', 'App-platform': 'WebPlayer'}
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as response:
-                return await response.json()
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as response:
+                    lyrics_data = await response.json()
+                    if 'lyrics' not in lyrics_data:
+                        raise HTTPException(status_code=500, detail={
+                            "error": {
+                                "request": f"GET {url}",
+                                "response": lyrics_data
+                            }
+                        })
+                    return lyrics_data
+        except Exception as e:
+            raise HTTPException(status_code=500, detail={
+                "error": {
+                    "request": f"GET {url}",
+                    "response": str(e)
+                }
+            })
 
     def extract_track_id(self, track_url):
         match = re.search(r'track/([a-zA-Z0-9]+)', track_url)
