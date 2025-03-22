@@ -8,9 +8,10 @@ import time
 import base64
 import hmac
 import hashlib
+import random
+import json
 from datetime import timedelta
 import requests
-import json
 
 app = FastAPI()
 
@@ -23,38 +24,46 @@ class TrackResponse(BaseModel):
     lyrics: str
     lines: list
 
+class ErrorDetail(BaseModel):
+    request: dict
+    response: dict
+    message: str
+
 class Spotify:
     def __init__(self):
-        with open('sp.json', 'r') as f:
-            self.sp_dcs = json.load(f)
+        with open("sp.json", "r") as f:
+            self.sp_dc_tokens = json.load(f)
         self.auth_url = 'https://open.spotify.com/get_access_token'
         self.base_api_url = 'https://api.spotify.com/v1/'
         self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
         self.server_time_url = 'https://open.spotify.com/server-time'
-        self.tokens = {}
-    
+        self.access_token = None
+        self.access_token_expiration = 0
+
+    def get_random_sp_dc(self):
+        return random.choice(self.sp_dc_tokens)
+
     async def get_access_token(self):
-        for sp_dc in self.sp_dcs:
-            if sp_dc in self.tokens and time.time() < self.tokens[sp_dc]['expiration'] - 20:
-                return self.tokens[sp_dc]['token']
-            try:
-                params = self.get_server_time_params()
-                headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={sp_dc}'}
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(self.auth_url, headers=headers, params=params) as response:
-                        raw_response = await response.text()
-                        if response.status == 200:
-                            token_data = await response.json()
-                            if 'accessToken' in token_data:
-                                self.tokens[sp_dc] = {
-                                    'token': token_data['accessToken'],
-                                    'expiration': token_data['accessTokenExpirationTimestampMs'] / 1000
-                                }
-                                return self.tokens[sp_dc]['token']
+        if self.access_token and time.time() < self.access_token_expiration - 20:
+            return self.access_token
+
+        sp_dc = self.get_random_sp_dc()
+        params = self.get_server_time_params()
+        headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={sp_dc}'}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(self.auth_url, headers=headers, params=params) as response:
+                raw_response = await response.text()
+                if response.status == 200:
+                    token_data = await response.json()
+                    if 'accessToken' in token_data:
+                        self.access_token = token_data['accessToken']
+                        self.access_token_expiration = token_data['accessTokenExpirationTimestampMs'] / 1000
+                        return self.access_token
+                    else:
                         raise HTTPException(status_code=500, detail={"message": "Failed to retrieve access token", "response": raw_response})
-            except Exception as e:
-                continue
-        raise HTTPException(status_code=500, detail={"message": "Failed to retrieve access token from any sp_dc"})
+                else:
+                    raise HTTPException(status_code=response.status, detail={"message": "Failed to retrieve access token", "response": raw_response})
 
     def get_server_time_params(self):
         response = requests.get(self.server_time_url)
@@ -83,26 +92,30 @@ class Spotify:
         track_id = self.extract_track_id(track_url)
         track_api_url = f"{self.base_api_url}tracks/{track_id}"
         headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
+
         async with aiohttp.ClientSession() as session:
             async with session.get(track_api_url, headers=headers) as response:
                 raw_response = await response.text()
                 if response.status == 200:
                     return await response.json()
-                raise HTTPException(status_code=response.status, detail={"message": "Failed to retrieve track details", "request": {"url": track_api_url}, "response": raw_response})
+                else:
+                    raise HTTPException(status_code=response.status, detail={"message": "Failed to retrieve track details", "request": {"url": track_api_url}, "response": raw_response})
 
     async def get_lyrics(self, access_token, track_url):
         track_id = self.extract_track_id(track_url)
         url = f'{self.lyrics_url}{track_id}?format=json&market=from_token'
         headers = {'Authorization': f'Bearer {access_token}', 'User-Agent': 'Mozilla/5.0', 'App-platform': 'WebPlayer'}
+
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers) as response:
                 raw_response = await response.text()
                 if response.status == 200:
                     return await response.json()
-                elif response.status == 401:
+                elif response.status == 401:  # Invalid access token
                     new_access_token = await self.get_access_token()
                     return await self.get_lyrics(new_access_token, track_url)
-                raise HTTPException(status_code=response.status, detail={"message": "Failed to retrieve lyrics", "request": {"url": url}, "response": raw_response})
+                else:
+                    raise HTTPException(status_code=response.status, detail={"message": "Failed to retrieve lyrics", "request": {"url": url}, "response": raw_response})
 
     def extract_track_id(self, track_url):
         match = re.search(r'track/([a-zA-Z0-9]+)', track_url)
@@ -152,10 +165,12 @@ async def get_song_details(request: Optional[TrackRequest] = None, id: str = Non
     track_url_to_use = track_url or f'https://open.spotify.com/track/{id}' if id else url if url else request.track_url
     if not track_url_to_use:
         raise HTTPException(status_code=400, detail="Either track_url, id, or url must be provided")
+
     try:
         response = await spotify.fetch_data(track_url_to_use)
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail={"message": str(e), "response": "Unknown error"})
+
     return response
