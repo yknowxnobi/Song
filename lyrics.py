@@ -13,7 +13,6 @@ import hashlib
 
 app = FastAPI()
 
-# Global variables for token caching
 cached_access_token = None
 cached_token_expiration = None
 
@@ -21,10 +20,11 @@ class TrackRequest(BaseModel):
     track_url: str
 
 class TrackResponse(BaseModel):
-    status: str
-    details: dict
-    lyrics: str
-    lines: list
+    success: bool
+    message: Optional[str]
+    details: Optional[dict]
+    lyrics: Optional[str]
+    lines: Optional[list]
 
 class Spotify:
     def __init__(self, sp_dc):
@@ -37,23 +37,24 @@ class Spotify:
     async def get_access_token(self):
         global cached_access_token, cached_token_expiration
 
-        # Check if the cached token is still valid
         if cached_access_token and cached_token_expiration and datetime.now() < cached_token_expiration:
             return cached_access_token
 
-        # If not valid, generate a new token
         params = self.get_server_time_params()
         headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}
         response = requests.get(self.auth_url, headers=headers, params=params)
+
+        if response.status_code != 200:
+            raise Exception("Failed to fetch access token")
+
         token_data = response.json()
 
         if 'accessToken' in token_data:
             cached_access_token = token_data['accessToken']
-            # Convert the expiration timestamp to a datetime object
             cached_token_expiration = datetime.fromtimestamp(token_data['accessTokenExpirationTimestampMs'] / 1000)
             return cached_access_token
         else:
-            raise Exception("Failed to retrieve access token")
+            raise Exception("Token can't fetch")
 
     def get_server_time_params(self):
         response = requests.get(self.server_time_url)
@@ -91,6 +92,8 @@ class Spotify:
         headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
         async with aiohttp.ClientSession() as session:
             async with session.get(track_api_url, headers=headers) as response:
+                if response.status != 200:
+                    raise Exception("Failed to fetch track details")
                 return await response.json()
 
     async def get_lyrics(self, access_token, track_url):
@@ -103,6 +106,8 @@ class Spotify:
         }
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers) as response:
+                if response.status != 200:
+                    raise Exception("Lyrics unavailable")
                 return await response.json()
 
     def extract_track_id(self, track_url):
@@ -110,21 +115,36 @@ class Spotify:
         return match.group(1) if match else None
 
     async def fetch_data(self, track_url):
-        access_token = await self.get_access_token()
-        track_details, lyrics = await asyncio.gather(
-            self.get_track_details(access_token, track_url),
-            self.get_lyrics(access_token, track_url)
-        )
+        try:
+            access_token = await self.get_access_token()
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e),
+            }
+
+        try:
+            track_details, lyrics = await asyncio.gather(
+                self.get_track_details(access_token, track_url),
+                self.get_lyrics(access_token, track_url)
+            )
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e),
+            }
+
         formatted_response = {
-            "status": "success",
+            "success": True,
+            "message": "Data fetched successfully",
             "details": self.format_track_details(track_details),
             "lyrics": self.get_combined_lyrics(lyrics['lyrics']['lines']) if 'lyrics' in lyrics else "No lyrics available",
-            "lines": lyrics['lyrics']['lines'] if 'lyrics' in lyrics else "No lyrics lines available"
+            "lines": lyrics['lyrics']['lines'] if 'lyrics' in lyrics else []
         }
         return formatted_response
 
     def format_track_details(self, track_details):
-         return {
+        return {
             'name': track_details['name'],
             'title': track_details['name'],
             'artists': track_details['artists'][0]['name'],
@@ -152,7 +172,7 @@ async def get_song_details(request: Optional[TrackRequest] = None, id: str = Non
 
     track_url_to_use = track_url or f'https://open.spotify.com/track/{id}' if id else url if url else request.track_url
     if not track_url_to_use:
-        raise HTTPException(status_code=400, detail="Either track_url, id, or url must be provided")
+        raise HTTPException(status_code=400, detail={"success": False, "message": "Either track_url, id, or url must be provided"})
 
     response = await spotify.fetch_data(track_url_to_use)
     return response
