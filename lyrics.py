@@ -4,7 +4,7 @@ from typing import Optional
 import asyncio
 import aiohttp
 import re
-from datetime import timedelta, datetime
+from datetime import timedelta
 import requests
 import time
 import base64
@@ -12,10 +12,6 @@ import hmac
 import hashlib
 
 app = FastAPI()
-
-# Global variables for token caching
-cached_access_token = None
-cached_token_expiration = None
 
 class TrackRequest(BaseModel):
     track_url: str
@@ -35,23 +31,12 @@ class Spotify:
         self.server_time_url = 'https://open.spotify.com/server-time'
 
     async def get_access_token(self):
-        global cached_access_token, cached_token_expiration
-
-        # Check if the cached token is still valid
-        if cached_access_token and cached_token_expiration and datetime.now() < cached_token_expiration:
-            return cached_access_token
-
-        # If not valid, generate a new token
         params = self.get_server_time_params()
         headers = {'User-Agent': 'Mozilla/5.0', 'Cookie': f'sp_dc={self.sp_dc}'}
         response = requests.get(self.auth_url, headers=headers, params=params)
         token_data = response.json()
-
         if 'accessToken' in token_data:
-            cached_access_token = token_data['accessToken']
-            # Convert the expiration timestamp to a datetime object
-            cached_token_expiration = datetime.fromtimestamp(token_data['accessTokenExpirationTimestampMs'] / 1000)
-            return cached_access_token
+            return token_data['accessToken']
         else:
             raise Exception("Failed to retrieve access token")
 
@@ -124,16 +109,13 @@ class Spotify:
         return formatted_response
 
     def format_track_details(self, track_details):
-         return {
+        return {
             'name': track_details['name'],
-            'title': track_details['name'],
             'artists': track_details['artists'][0]['name'],
             'album': track_details['album']['name'],
             'release_date': track_details['album']['release_date'],
             'duration': self.format_duration(track_details['duration_ms']),
-            'duration_ms': track_details['duration_ms'],
             'image_url': track_details['album']['images'][0]['url'],
-            'cover': track_details['album']['images'][0]['url'],
             'track_url': track_details['external_urls']['spotify'],
             'popularity': track_details['popularity']
         }
