@@ -127,8 +127,8 @@ class Spotify:
         return f'{hours:02}:{minutes:02}:{seconds:02},{ms:03}'
 
 
-@app.post("/test", response_model=TrackResponse)
-@app.get("/test", response_model=TrackResponse)
+@app.post("/spotify/lyrics", response_model=TrackResponse)
+@app.get("/spotify/lyrics", response_model=TrackResponse)
 async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None, lyrics_type: str = 'json'):
     spotify = Spotify()
     
