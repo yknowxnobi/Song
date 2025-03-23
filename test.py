@@ -4,6 +4,9 @@ import re
 import json
 from datetime import timedelta
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse, Response
+from typing import Optional
+import os
 
 app = FastAPI()
 
@@ -72,7 +75,10 @@ class Spotify:
         }
 
     def format_duration(self, duration_ms):
-        return str(timedelta(milliseconds=duration_ms))
+        minutes = duration_ms // 60000
+        seconds = (duration_ms % 60000) // 1000
+        milliseconds = (duration_ms % 1000)
+        return f"{minutes:02}:{seconds:02}.{milliseconds:03}"
 
     def combine_lyrics(self, lyrics_lines):
         """Combines lyrics into a full string with newline characters."""
@@ -96,7 +102,24 @@ class Spotify:
         
         return "\n".join(lrc_lines)
 
-async def fetch_lyrics_and_details(track_id, response_type="text"):
+    def format_lyrics_for_download(self, track_details, lyrics_lines):
+        """Formats the lyrics with metadata for LRC download."""
+        lrc_content = f"[ar:{track_details['artists']}]\n"
+        lrc_content += f"[al:{track_details['album']}]\n"
+        lrc_content += f"[ti:{track_details['title']}]\n"
+        lrc_content += f"[length:{self.format_duration(track_details['duration_ms'])}]\n\n"
+        
+        for line in lyrics_lines:
+            start_time = int(line['startTimeMs'])
+            minutes = start_time // 60000
+            seconds = (start_time % 60000) // 1000
+            milliseconds = start_time % 1000
+            timestamp = f"[{minutes:02}:{seconds:02}.{milliseconds:03}]"
+            lrc_content += f"{timestamp}{line['words']}\n"
+        
+        return lrc_content
+
+async def fetch_lyrics_and_details(track_id, response_type="text", download=False):
     sp_dc = "AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_"
     sp_key = "890acd67-3e50-4709-89ab-04e794616352"
 
@@ -115,6 +138,16 @@ async def fetch_lyrics_and_details(track_id, response_type="text"):
             else:
                 formatted_lyrics = spotify.combine_lyrics(lyrics_data['lyrics']['lines'])
             
+            if download:
+                # If download=true, format lyrics for LRC file and save to disk
+                lrc_content = spotify.format_lyrics_for_download(track_details, lyrics_data['lyrics']['lines'])
+                filename = f"{track_details['title']}.lrc"
+                with open(filename, "w") as f:
+                    f.write(lrc_content)
+                
+                return FileResponse(filename, media_type="text/plain", filename=filename)
+            
+            # Regular JSON response
             response = {
                 "status": "success",
                 "details": spotify.format_track_details(track_details),
@@ -133,17 +166,23 @@ async def fetch_lyrics_and_details(track_id, response_type="text"):
         raise HTTPException(status_code=500, detail="Unable to fetch access token")
 
 @app.get("/test")
-async def get_lyrics(id: str = Query(None, description="Spotify track ID"), url: str = Query(None, description="Spotify track URL"), type: str = Query("text", description="Response type: text or lrc")):
+async def get_lyrics(
+    id: str = Query(None, description="Spotify track ID"),
+    url: str = Query(None, description="Spotify track URL"),
+    type: str = Query("text", description="Response type: text or lrc"),
+    download: Optional[bool] = Query(False, description="If true, downloads LRC format")
+):
     """
     Get lyrics and track details from a Spotify track URL or ID.
     
     - **id**: Spotify track ID.
     - **url**: Spotify track URL.
     - **type**: Optional. Response format: `text` (default) or `lrc` for LRC format.
+    - **download**: Optional. If true, provides the lyrics as an LRC file.
     """
     if not id and not url:
         raise HTTPException(status_code=400, detail="You must provide either a track ID or URL")
 
     track_id = id if id else Spotify(None, None).extract_track_id(url)
-    result = await fetch_lyrics_and_details(track_id, response_type=type)
+    result = await fetch_lyrics_and_details(track_id, response_type=type, download=download)
     return result
