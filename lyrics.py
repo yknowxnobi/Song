@@ -21,7 +21,7 @@ class Spotify:
     def __init__(self):
         self.auth_url = 'http://46.202.167.246:6060/token'
         self.base_api_url = 'https://api.spotify.com/v1/'
-        self.lyrics_url = 'https://spotify-lyrics-api-pi.vercel.app/?url='
+        self.lyrics_url = 'https://spotify-lyrics-api-pi.vercel.app/'
 
     async def get_access_token(self):
         try:
@@ -45,7 +45,7 @@ class Spotify:
 
     async def get_lyrics(self, track_url):
         try:
-            url = f'{self.lyrics_url}{track_url}'
+            url = f'{self.lyrics_url}?url={track_url}'
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
                     return await response.json()
@@ -56,7 +56,7 @@ class Spotify:
         match = re.search(r'track/([a-zA-Z0-9]+)', track_url)
         return match.group(1) if match else None
 
-    async def fetch_data(self, track_url, lyrics_type='json'):
+    async def fetch_data(self, track_url):
         access_token = await self.get_access_token()
         track_details, lyrics = await asyncio.gather(
             self.get_track_details(access_token, track_url),
@@ -65,7 +65,7 @@ class Spotify:
         formatted_response = {
             "status": "success",
             "details": self.format_track_details(track_details),
-            "lyrics": self.get_formatted_lyrics(lyrics['lines'], lyrics_type) if 'lines' in lyrics else "No lyrics available",
+            "lyrics": self.get_formatted_lyrics(lyrics['lines']) if 'lines' in lyrics else "No lyrics available",
             "lines": lyrics['lines'] if 'lines' in lyrics else "No lyrics lines available"
         }
         return formatted_response
@@ -88,45 +88,12 @@ class Spotify:
     def format_duration(self, duration_ms):
         return str(timedelta(milliseconds=duration_ms))
 
-    def get_formatted_lyrics(self, lyrics, lyrics_type):
-        if lyrics_type == 'lrc':
-            return self.get_lrc_lyrics(lyrics)
-        elif lyrics_type == 'srt':
-            return self.get_srt_lyrics(lyrics)
-        return self.get_combined_lyrics(lyrics)
-
-    def get_combined_lyrics(self, lyrics):
+    def get_formatted_lyrics(self, lyrics):
         return '\n'.join([line['words'] for line in lyrics])
-
-    def get_lrc_lyrics(self, lyrics):
-        lrc = []
-        for line in lyrics:
-            lrctime = self.format_ms(line['startTimeMs'])
-            lrc.append({'timeTag': lrctime, 'words': line['words']})
-        return lrc
-
-    def get_srt_lyrics(self, lyrics):
-        srt = []
-        for i in range(1, len(lyrics)):
-            srttime = self.format_srt(lyrics[i-1]['startTimeMs'])
-            srtendtime = self.format_srt(lyrics[i]['startTimeMs'])
-            srt.append({'index': i, 'startTime': srttime, 'endTime': srtendtime, 'words': lyrics[i-1]['words']})
-        return srt
-
-    def format_ms(self, milliseconds):
-        th_secs = int(milliseconds / 1000)
-        return f'{int(th_secs / 60):02}:{th_secs % 60:02}.{int((milliseconds % 1000) / 10):02}'
-
-    def format_srt(self, milliseconds):
-        hours = int(milliseconds / 3600000)
-        minutes = int(milliseconds % 3600000 / 60000)
-        seconds = int(milliseconds % 60000 / 1000)
-        ms = milliseconds % 1000
-        return f'{hours:02}:{minutes:02}:{seconds:02},{ms:03}'
 
 @app.post("/spotify/lyrics", response_model=TrackResponse)
 @app.get("/spotify/lyrics", response_model=TrackResponse)
-async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None, lyrics_type: str = 'json'):
+async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None):
     spotify = Spotify()
     
     track_url_to_use = track_url or f'https://open.spotify.com/track/{id}' if id else url if url else request.track_url if request and request.track_url else None
@@ -134,5 +101,5 @@ async def get_song_details(request: Optional[TrackRequest] = None, id: str = Non
     if not track_url_to_use:
         raise HTTPException(status_code=400, detail="Either track_url, id, or url must be provided")
     
-    response = await spotify.fetch_data(track_url_to_use, lyrics_type)
+    response = await spotify.fetch_data(track_url_to_use)
     return response
