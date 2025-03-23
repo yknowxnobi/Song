@@ -96,8 +96,8 @@ class Spotify:
         return '\n'.join([line['words'] for line in lyrics])
 
 # FastAPI Route
-@app.post("/test", response_model=TrackResponse)
-@app.get("/test", response_model=TrackResponse)
+@app.post("/spotify/lyrics", response_model=TrackResponse)
+@app.get("/spotify/lyrics", response_model=TrackResponse)
 async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None):
     sp_dc = "AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_"
     sp_key = "890acd67-3e50-4709-89ab-04e794616352"
