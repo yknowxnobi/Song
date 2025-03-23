@@ -64,27 +64,12 @@ class Spotify:
             self.get_track_details(access_token, track_url),
             self.get_lyrics(access_token, track_url)
         )
-        if 'lyrics' not in lyrics:
-            return {
-                "status": "success",
-                "details": self.format_track_details(track_details),
-                "lyrics": "No lyrics available",
-                "lines": []
-            }
-        
-        lyrics_data = lyrics['lyrics']['lines']
-        if lyrics_type == 'lrc':
-            formatted_lyrics = self.get_lrc_lyrics(lyrics_data)
-        elif lyrics_type == 'srt':
-            formatted_lyrics = self.get_srt_lyrics(lyrics_data)
-        else:
-            formatted_lyrics = self.get_combined_lyrics(lyrics_data)
 
         formatted_response = {
             "status": "success",
             "details": self.format_track_details(track_details),
-            "lyrics": formatted_lyrics,
-            "lines": lyrics_data
+            "lyrics": self.get_combined_lyrics(lyrics['lyrics']['lines'], lyrics_type) if 'lyrics' in lyrics else "No lyrics available",
+            "lines": lyrics['lyrics']['lines'] if 'lyrics' in lyrics else "No lyrics lines available"
         }
         return formatted_response
 
@@ -106,41 +91,46 @@ class Spotify:
     def format_duration(self, duration_ms):
         return str(timedelta(milliseconds=duration_ms))
 
-    def get_combined_lyrics(self, lyrics):
-        return '\n'.join([line['words'] for line in lyrics])
+    def get_combined_lyrics(self, lyrics, lyrics_type):
+        if lyrics_type == 'lrc':
+            return self.get_lrc_lyrics(lyrics)
+        elif lyrics_type == 'srt':
+            return self.get_srt_lyrics(lyrics)
+        else:
+            return '\n'.join([line['words'] for line in lyrics])
 
     def get_lrc_lyrics(self, lyrics):
         lrc = []
-        for line in lyrics:
-            lrctime = self.format_ms(line['startTimeMs'])
-            lrc.append(f"[{lrctime}] {line['words']}")
+        for lines in lyrics:
+            lrctime = self.formatMS(lines['startTimeMs'])
+            lrc.append(f"[{lrctime}] {lines['words']}")
         return '\n'.join(lrc)
 
     def get_srt_lyrics(self, lyrics):
         srt = []
         for i in range(1, len(lyrics)):
-            srttime = self.format_srt(lyrics[i-1]['startTimeMs'])
-            srtendtime = self.format_srt(lyrics[i]['startTimeMs'])
-            srt.append(f"{i}\n{srttime} --> {srtendtime}\n{lyrics[i-1]['words']}")
+            start_time = self.formatSRT(lyrics[i-1]['startTimeMs'])
+            end_time = self.formatSRT(lyrics[i]['startTimeMs'])
+            srt.append(f"{i}\n{start_time} --> {end_time}\n{lyrics[i-1]['words']}\n")
         return '\n'.join(srt)
 
-    def format_ms(self, milliseconds):
+    def formatMS(self, milliseconds):
         th_secs = int(milliseconds / 1000)
-        return f"{int(th_secs / 60):02}:{th_secs % 60:02}.{int(milliseconds % 1000 / 10):02}"
+        return f'{th_secs // 60:02}:{th_secs % 60:02}.{milliseconds % 1000 // 10:02}'
 
-    def format_srt(self, milliseconds):
-        hours = int(milliseconds / 3600000)
-        minutes = int((milliseconds % 3600000) / 60000)
-        seconds = int((milliseconds % 60000) / 1000)
-        ms = milliseconds % 1000
-        return f"{hours:02}:{minutes:02}:{seconds:02},{ms:03}"
+    def formatSRT(self, milliseconds):
+        hours = milliseconds // 3600000
+        minutes = (milliseconds % 3600000) // 60000
+        seconds = (milliseconds % 60000) // 1000
+        milliseconds = milliseconds % 1000
+        return f'{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}'
 
-# FastAPI Route
+
 @app.post("/test", response_model=TrackResponse)
 @app.get("/test", response_model=TrackResponse)
-async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None, lyrics_type: Optional[str] = 'json'):
+async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None, lyrics_type: str = 'json'):
     spotify = Spotify()
-    
+
     track_url_to_use = None
     if track_url:
         track_url_to_use = track_url
@@ -152,6 +142,6 @@ async def get_song_details(request: Optional[TrackRequest] = None, id: str = Non
         track_url_to_use = request.track_url
     else:
         raise HTTPException(status_code=400, detail="Either track_url, id, or url must be provided")
-    
-    response = await spotify.fetch_data(track_url_to_use, lyrics_type=lyrics_type)
+
+    response = await spotify.fetch_data(track_url_to_use, lyrics_type)
     return response
