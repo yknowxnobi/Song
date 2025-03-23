@@ -104,28 +104,26 @@ async def get_song_details(id: str = None, url: str = None, type: str = None, do
     sp_key = "YOUR_SP_KEY"
     spotify = Spotify(sp_dc, sp_key)
 
-    track_url_to_use = None
-    if id:
-        track_url_to_use = f'https://open.spotify.com/track/{id}'
-    elif url:
-        track_url_to_use = url
-    else:
-        raise HTTPException(status_code=400, detail="Either 'id' or 'url' must be provided")
+    track_url_to_use = None  
+    if id:  
+        track_url_to_use = f'https://open.spotify.com/track/{id}'  
+    elif url:  
+        track_url_to_use = url  
+    else:  
+        raise HTTPException(status_code=400, detail="Either 'id' or 'url' must be provided")  
 
-    response, combined_lyrics = await spotify.fetch_data(track_url_to_use, type)
+    response, combined_lyrics = await spotify.fetch_data(track_url_to_use, type)  
 
-    if download and type == 'lrc':
-        # Create the .lrc file content
-        track_details = response['details']
-        lrc_header = f"[ar:{track_details['artists']}]\n[al:{track_details['album']}]\n[ti:{track_details['name']}]\n[length:{track_details['duration']}]\n\n"
-        lrc_content = lrc_header + combined_lyrics
+    if download and type == 'lrc':  
+        # Create the .lrc file content  
+        track_details = response['details']  
+        lrc_header = f"[ar:{track_details['artists']}]\n[al:{track_details['album']}]\n[ti:{track_details['name']}]\n[length:{track_details['duration']}]\n\n"  
+        lrc_content = lrc_header + combined_lyrics  
 
-        # Stream the content as an attachment
-        lrc_file = BytesIO(lrc_content.encode('utf-8'))
-        headers = {
-            'Content-Disposition': f'attachment; filename="{track_details["name"]}.lrc"'
-        }
-        return StreamingResponse(lrc_file, headers=headers, media_type="application/octet-stream")
+        # Stream the content without triggering download, for preview
+        lrc_file = BytesIO(lrc_content.encode('utf-8'))  
 
-    # Return the normal JSON response
+        return StreamingResponse(lrc_file, media_type="text/plain")  # Inline content preview for sharing
+
+    # Return the normal JSON response  
     return response
