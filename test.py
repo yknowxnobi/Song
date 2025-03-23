@@ -18,9 +18,8 @@ class TrackResponse(BaseModel):
     lines: list
 
 class Spotify:
-    def __init__(self, sp_dc, sp_key):
-        self.sp_dc = sp_dc
-        self.sp_key = sp_key
+    def __init__(self):
+        
         self.auth_url = 'http://46.202.167.246:6060/token'
         self.base_api_url = 'https://api.spotify.com/v1/'
         self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
@@ -28,7 +27,7 @@ class Spotify:
     async def get_access_token(self):
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(self.auth_url, cookies={'sp_dc': self.sp_dc, 'sp_key': self.sp_key}) as response:
+                async with session.get(self.auth_url) as response:
                     token_data = await response.json()
                     return token_data['token_data']['access_token']
         except Exception as e:
@@ -99,9 +98,7 @@ class Spotify:
 @app.post("/test", response_model=TrackResponse)
 @app.get("/test", response_model=TrackResponse)
 async def get_song_details(request: Optional[TrackRequest] = None, id: str = None, track_url: str = None, url: str = None):
-    sp_dc = "AQBfZF-Im6xP-vFXlqnaJVnPbWgJ8ui7MeSvtLnK5qYByRu9Yvpl7Vc-nxBySHBNryQuMfWLqffcuRWJN8E7F1Zk4Hj1NAFkObJ5TbJqkg5wfTx4aPgfpbQN98eeYVvHKPENvEoUVjECHwZMLiWqcikFaiIvJHgPRn-h8RTTSeEM7LrWRyZ34V-VOKPVOLheENAZP4UQ8R3whLKOoldtWW-g6Z3_"
-    sp_key = "890acd67-3e50-4709-89ab-04e794616352"
-    spotify = Spotify(sp_dc, sp_key)
+    spotify = Spotify()
     
     # Determine the track URL from the request body or query parameters
     track_url_to_use = None
