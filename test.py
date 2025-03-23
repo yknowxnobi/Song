@@ -132,7 +132,7 @@ async def fetch_lyrics_and_details(track_id, response_type="text"):
     else:
         raise HTTPException(status_code=500, detail="Unable to fetch access token")
 
-@app.get("/spotify/lyrics")
+@app.get("/test")
 async def get_lyrics(id: str = Query(None, description="Spotify track ID"), url: str = Query(None, description="Spotify track URL"), type: str = Query("text", description="Response type: text or lrc")):
     """
     Get lyrics and track details from a Spotify track URL or ID.
