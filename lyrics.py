@@ -21,7 +21,7 @@ class Spotify:
     def __init__(self):
         self.auth_url = 'http://46.202.167.246:6060/token'
         self.base_api_url = 'https://api.spotify.com/v1/'
-        self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
+        self.lyrics_url = 'https://spotify-lyrics-api-pi.vercel.app/'
 
     async def get_access_token(self):
         try:
@@ -35,7 +35,7 @@ class Spotify:
     async def get_track_details(self, access_token, track_url):
         try:
             track_id = self.extract_track_id(track_url)
-            track_api_url = f"{self.base_api_url}tracks/{track_id}"
+            track_api_url = f"{self.base_api_url}?trackid={track_id}"
             headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
             async with aiohttp.ClientSession() as session:
                 async with session.get(track_api_url, headers=headers) as response:
