@@ -98,7 +98,7 @@ class Spotify:
             return '\n'.join(lrc_lines)
         return '\n'.join([line['words'] for line in lyrics])
 
-@app.get("/spotify/lyrics", response_model=None)
+@app.get("/test", response_model=None)
 async def get_song_details(id: str = None, url: str = None, type: str = None, download: bool = False):
     sp_dc = "YOUR_SP_DC"
     sp_key = "YOUR_SP_KEY"
