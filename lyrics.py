@@ -21,7 +21,7 @@ class Spotify:
     def __init__(self):
         self.auth_url = 'http://46.202.167.246:6060/token'
         self.base_api_url = 'https://api.spotify.com/v1/'
-        self.lyrics_url = 'https://spotify-lyrics-api-pi.vercel.app/'
+        self.lyrics_url = 'https://spotify-lyrics-api-pi.vercel.app/?url='
 
     async def get_access_token(self):
         try:
@@ -43,13 +43,11 @@ class Spotify:
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Error fetching track details: {str(e)}")
 
-    async def get_lyrics(self, access_token, track_url):
+    async def get_lyrics(self, track_url):
         try:
-            track_id = self.extract_track_id(track_url)
-            url = f'{self.lyrics_url}{track_id}?format=json&market=from_token'
-            headers = {'Authorization': f'Bearer {access_token}', 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Safari/537.36', 'App-platform': 'WebPlayer'}
+            url = f'{self.lyrics_url}{track_url}'
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers) as response:
+                async with session.get(url) as response:
                     return await response.json()
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Error fetching lyrics: {str(e)}")
@@ -62,13 +60,13 @@ class Spotify:
         access_token = await self.get_access_token()
         track_details, lyrics = await asyncio.gather(
             self.get_track_details(access_token, track_url),
-            self.get_lyrics(access_token, track_url)
+            self.get_lyrics(track_url)
         )
         formatted_response = {
             "status": "success",
             "details": self.format_track_details(track_details),
-            "lyrics": self.get_formatted_lyrics(lyrics['lyrics']['lines'], lyrics_type) if 'lyrics' in lyrics else "No lyrics available",
-            "lines": lyrics['lyrics']['lines'] if 'lyrics' in lyrics else "No lyrics lines available"
+            "lyrics": self.get_formatted_lyrics(lyrics['lines'], lyrics_type) if 'lines' in lyrics else "No lyrics available",
+            "lines": lyrics['lines'] if 'lines' in lyrics else "No lyrics lines available"
         }
         return formatted_response
 
@@ -125,7 +123,6 @@ class Spotify:
         seconds = int(milliseconds % 60000 / 1000)
         ms = milliseconds % 1000
         return f'{hours:02}:{minutes:02}:{seconds:02},{ms:03}'
-
 
 @app.post("/spotify/lyrics", response_model=TrackResponse)
 @app.get("/spotify/lyrics", response_model=TrackResponse)
