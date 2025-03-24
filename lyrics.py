@@ -19,7 +19,7 @@ class Spotify:
         self.sp_key = sp_key
         self.auth_url = 'http://46.202.167.246:6060/token'
         self.base_api_url = 'https://api.spotify.com/v1/'
-        self.lyrics_url = 'https://spotify-lyrics-api-pi.vercel.app?trackid='
+        self.lyrics_url = 'https://spclient.wg.spotify.com/color-lyrics/v2/track/'
 
     async def get_access_token(self):
         try:
