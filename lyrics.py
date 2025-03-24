@@ -44,7 +44,7 @@ class Spotify:
     async def get_lyrics(self, access_token, track_url):
         try:
             track_id = self.extract_track_id(track_url)
-            url = f'{self.lyrics_url}{track_id}?format=json&market=from_token'
+            url = f'{self.lyrics_url}{track_id}&format=json&market=from_token'
             headers = {'Authorization': f'Bearer {access_token}', 'User-Agent': 'Mozilla/5.0', 'App-platform': 'WebPlayer'}
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as response:
