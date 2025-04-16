@@ -23,3 +23,5 @@ A lightweight Node.js backend service that provides seamless integration with Sp
 - Basic server infrastructure
 
 *Note: This service requires proper Spotify API authentication setup.*
+
+**Get Your client id and secret from [Here](https://developer.spotify.com/)**
