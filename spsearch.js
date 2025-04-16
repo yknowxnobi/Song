@@ -1,4 +1,7 @@
+const express = require('express');
 const axios = require('axios');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 const client_id = '414df719f85e45c9bd0ee5e83d08b501';
 const client_secret = 'fa7e159a0b904b8b8505bf59b6458d3a';
@@ -92,7 +95,7 @@ const handleTrackDownload = async (trackUrl) => {
   return response.data;
 };
 
-module.exports = async (req, res) => {
+app.get('/spotify/search', async (req, res) => {
   const query = req.query.q;
   const spotifyUrl = req.query.url;
   const limit = parseInt(req.query.limit, 10) || 30;
@@ -213,8 +216,15 @@ module.exports = async (req, res) => {
           return res.status(404).json({ error: 'No tracks found' });
         }
       }
+    } else {
+      return res.status(400).json({ error: 'Missing query parameter (q) or Spotify URL (url)' });
     }
   } catch (error) {
+    console.error('Error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
-};
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
