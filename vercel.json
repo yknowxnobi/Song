@@ -23,15 +23,11 @@
       "src": "/spotify/track",
       "dest": "/sptrack.js"
     },
-    {
-      "src": "/spotify/lyrics",
-      "dest": "/lyrics.py"
-    },
+    
     {
       "src": "/song",
       "dest": "/track.js"
-    },
-    {"src": "/test", "dest": "/test.py"}
+    }
       
   ]
 }
