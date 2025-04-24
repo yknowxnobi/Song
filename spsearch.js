@@ -1,6 +1,5 @@
 const express = require('express');
 const axios = require('axios');
-const { getToken } = require('./lib/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -8,22 +7,16 @@ const client_id = '414df719f85e45c9bd0ee5e83d08b501';
 const client_secret = 'fa7e159a0b904b8b8505bf59b6458d3a';
 
 const getAccessToken = async () => {
-  try {
-    const tokenData = await getToken();
-    return tokenData.granted_token.token;
-  } catch (error) {
-    // Fallback to the original method if the new one fails
-    const tokenUrl = 'https://accounts.spotify.com/api/token';
-    const authOptions = {
-      headers: {
-        'Authorization': 'Basic ' + Buffer.from(client_id + ':' + client_secret).toString('base64'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      data: 'grant_type=client_credentials'
-    };
-    const response = await axios.post(tokenUrl, authOptions.data, { headers: authOptions.headers });
-    return response.data.access_token;
-  }
+  const tokenUrl = 'https://accounts.spotify.com/api/token';
+  const authOptions = {
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from(client_id + ':' + client_secret).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    data: 'grant_type=client_credentials'
+  };
+  const response = await axios.post(tokenUrl, authOptions.data, { headers: authOptions.headers });
+  return response.data.access_token;
 };
 
 const searchSongs = async (accessToken, query, limit = 30, offset = 0) => {
