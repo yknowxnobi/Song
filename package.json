@@ -15,7 +15,7 @@
     "express": "^4.17.1",
     "body-parser": "^1.19.0",
     "node-fetch": "^2.6.1",
-    "axios": "latest",
+    "axios": "0.30.0",
     "awesome-phonenumber": "latest",
     "libphonenumber-js": "latest",
     "brotli-wasm": "latest",
