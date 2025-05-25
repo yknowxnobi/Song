@@ -1,8 +1,13 @@
 const express = require('express');
 const axios = require('axios');
 const qs = require('qs');
+const cors = require('cors');
 
 const app = express();
+
+// Allow all CORS requests
+app.use(cors());
+
 const PORT = process.env.PORT || 3000;
 
 const client_id = '414df719f85e45c9bd0ee5e83d08b501';
