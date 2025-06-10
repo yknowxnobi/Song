@@ -110,14 +110,14 @@ module.exports = async (req, res) => {
         const playlistDetails = await getPlaylistDetails(accessToken, playlistId);
         return res.status(200).json({
           data: playlistDetails,
-          developerCredit: 'https://t.me/Teleservices_Api'
+          developerCredit: 'https://t.me/nobi_shops'
         });
       } else if (isAlbum) {
         const albumId = spotifyUrl.split('/').pop().split('?')[0];
         const albumDetails = await getAlbumDetails(accessToken, albumId);
         return res.status(200).json({
           tracks: albumDetails.tracks,
-          developerCredit: 'https://t.me/Teleservices_Api'
+          developerCredit: 'https://t.me/nobi_shops'
         });
       } else if (isTrack) {
         const trackResponse = await handleTrackDownload(spotifyUrl);
@@ -169,7 +169,7 @@ module.exports = async (req, res) => {
         });
         return res.status(200).json({
           tracks: trackDetailsList,
-          developerCredit: 'https://t.me/Teleservices_Api'
+          developerCredit: 'https://t.me/nobi_shops'
         });
       } else {
         const searchResults = await searchSongs(accessToken, query, limit, offset);
@@ -207,7 +207,7 @@ module.exports = async (req, res) => {
           });
           return res.status(200).json({
             tracks: trackDetailsList,
-            developerCredit: 'https://t.me/Teleservices_Api'
+            developerCredit: 'https://t.me/nobi_shops'
           });
         } else {
           return res.status(404).json({ error: 'No tracks found' });
